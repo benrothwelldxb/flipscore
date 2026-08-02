@@ -28,10 +28,11 @@ function BigAvatar({ player, size = 96 }: { player: Player; size?: number }) {
   const { hex } = colorByKey(player.color)
   return (
     <span
-      className="inline-flex items-center justify-center rounded-full text-3xl font-bold"
+      className="inline-flex shrink-0 items-center justify-center rounded-full font-bold"
       style={{
         width: size,
         height: size,
+        fontSize: Math.round(size * 0.4),
         backgroundColor: hex,
         color: readableTextColor(hex),
       }}
@@ -119,13 +120,25 @@ export function PassThePhoneScreen({ game }: PassScreenProps) {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -32 }}
             transition={{ type: 'spring', bounce: 0.2, duration: 0.4 }}
-            className="flex flex-1 flex-col gap-6"
+            className="flex flex-1 flex-col gap-4"
           >
-            <div className="flex h-9 items-center justify-end">
+            {/* Compact identity strip keeps the score entry in the viewport. */}
+            <div className="flex items-center gap-3">
+              <BigAvatar player={currentPlayer} size={44} />
+              <div className="min-w-0 flex-1">
+                <h1 className="truncate text-lg leading-tight font-bold">
+                  {currentPlayer.name}
+                </h1>
+                <p className="text-muted-foreground text-xs">
+                  Round {roundNumber} · Player {scoredCount + 1} of{' '}
+                  {game.players.length}
+                </p>
+              </div>
               {canUndo && (
                 <Button
                   variant="ghost"
                   size="sm"
+                  className="shrink-0"
                   onClick={handleUndo}
                   aria-label="Undo last score"
                 >
@@ -133,16 +146,6 @@ export function PassThePhoneScreen({ game }: PassScreenProps) {
                   Undo
                 </Button>
               )}
-            </div>
-            <div className="flex flex-col items-center gap-3 text-center">
-              <BigAvatar player={currentPlayer} />
-              <div>
-                <h1 className="text-2xl font-bold">{currentPlayer.name}</h1>
-                <p className="text-muted-foreground text-sm">
-                  Round {roundNumber} · Player {scoredCount + 1} of{' '}
-                  {game.players.length}
-                </p>
-              </div>
             </div>
             <ScoreEntryPanel
               onSubmit={handleSubmit}

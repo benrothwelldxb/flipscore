@@ -87,22 +87,26 @@ e2e/              # Playwright specs
 scripts/          # build-time tooling (icon generation)
 ```
 
-## Deploy (Cloudflare Pages)
+## Deploy (Cloudflare)
 
-The app is a static SPA — build once and serve `dist/`.
+The app is a static SPA — build once and serve `dist/`. Both Cloudflare
+products work; pick one.
 
-- **Build command:** `npm run build`
-- **Output directory:** `dist`
-- SPA routing + caching headers ship via `public/_redirects` and
-  `public/_headers`; `wrangler.toml` sets `pages_build_output_dir = "dist"`.
+**Worker + static assets (matches `wrangler.toml`)**
 
-**Dashboard:** create a Pages project from this repo with the build command and
-output directory above.
+- Build command: `npm run build`
+- Deploy command: `npx wrangler deploy`
+- `wrangler.toml` serves `./dist` as assets with
+  `not_found_handling = "single-page-application"` for client-side routing.
+- The Worker name in `wrangler.toml` must match your Worker (`flipscorer`).
 
-**CLI:** `npx wrangler pages deploy dist --project-name=flipscore`
+**Pages (alternative)**
 
-**CI:** the `Deploy` workflow (`.github/workflows/deploy.yml`) publishes on
-manual dispatch once `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`
-repository secrets are set.
+- Build command: `npm run build`, output directory: `dist`, production branch
+  `main`. Pages also honours `public/_redirects` and `public/_headers`.
+- CLI: `npx wrangler pages deploy dist --project-name=<your-project>`.
+
+The `Deploy` workflow (`.github/workflows/deploy.yml`) can publish on manual
+dispatch once `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` secrets exist.
 
 See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the design rationale.

@@ -1,2 +1,10 @@
-name = "flipscore"
-pages_build_output_dir = "dist"
+# Cloudflare Worker serving the built SPA as static assets.
+# Build command:  npm run build   (produces ./dist)
+# Deploy command: npx wrangler deploy
+name = "flipscorer"
+compatibility_date = "2026-08-02"
+
+[assets]
+directory = "./dist"
+# Serve index.html for unknown paths so client-side routes work (SPA).
+not_found_handling = "single-page-application"

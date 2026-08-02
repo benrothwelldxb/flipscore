@@ -1,0 +1,196 @@
+import { useEffect, useRef, useState } from 'react'
+import { AnimatePresence, motion } from 'framer-motion'
+import { ArrowRight, Flag, PartyPopper } from 'lucide-react'
+
+import { Button } from '@/components/ui/button'
+import {
+  colorByKey,
+  initialsFromName,
+  readableTextColor,
+} from '@/domain/colors'
+import type { Game, Player } from '@/domain/types'
+import { vibrate } from '@/lib/haptics'
+import { useGameStore } from '@/stores/game-store'
+
+import { Leaderboard } from './leaderboard'
+import { ScoreEntry } from './score-entry'
+
+type Phase = 'scoring' | 'handoff' | 'roundEnd'
+
+interface PassScreenProps {
+  game: Game
+}
+
+function BigAvatar({ player, size = 96 }: { player: Player; size?: number }) {
+  const { hex } = colorByKey(player.color)
+  return (
+    <span
+      className="inline-flex items-center justify-center rounded-full text-3xl font-bold"
+      style={{
+        width: size,
+        height: size,
+        backgroundColor: hex,
+        color: readableTextColor(hex),
+      }}
+      aria-hidden
+    >
+      {initialsFromName(player.name)}
+    </span>
+  )
+}
+
+export function PassThePhoneScreen({ game }: PassScreenProps) {
+  const [phase, setPhase] = useState<Phase>('scoring')
+  const store = useGameStore.getState
+
+  const round = game.rounds[game.currentRoundIndex]
+  const roundNumber = game.currentRoundIndex + 1
+  const scoredCount = game.players.filter((p) => p.id in round.scores).length
+
+  const currentPlayer: Player | undefined = game.players[scoredCount]
+  const roundComplete = scoredCount >= game.players.length
+
+  function handleSubmit(value: number) {
+    if (!currentPlayer) return
+    store().submitScore(game.id, currentPlayer.id, value)
+    vibrate([10, 30, 10])
+    // If that entry finished the game, the parent swaps to the results screen.
+    if (scoredCount + 1 >= game.players.length) {
+      setPhase('roundEnd')
+    } else {
+      setPhase('handoff')
+    }
+  }
+
+  function startNextRound() {
+    store().nextRound(game.id)
+    setPhase('scoring')
+  }
+
+  // Defensive: if we somehow land on a complete round while "scoring", show end.
+  const effectivePhase: Phase =
+    phase === 'scoring' && roundComplete ? 'roundEnd' : phase
+
+  const handoffRef = useRef<HTMLButtonElement>(null)
+
+  // Move focus to the handoff prompt so screen-reader / keyboard users aren't
+  // stranded on <body> when the phase changes.
+  useEffect(() => {
+    if (effectivePhase === 'handoff') handoffRef.current?.focus()
+  }, [effectivePhase])
+
+  const liveMessage =
+    effectivePhase === 'handoff' && currentPlayer
+      ? `Pass the phone to ${currentPlayer.name}.`
+      : effectivePhase === 'roundEnd'
+        ? `Round ${roundNumber} complete.`
+        : effectivePhase === 'scoring' && currentPlayer
+          ? `${currentPlayer.name}, your turn to score.`
+          : ''
+
+  return (
+    <div className="flex min-h-[70svh] flex-col">
+      <p role="status" aria-live="polite" className="sr-only">
+        {liveMessage}
+      </p>
+      <AnimatePresence mode="wait">
+        {effectivePhase === 'scoring' && currentPlayer && (
+          <motion.div
+            key={`score-${currentPlayer.id}-${roundNumber}`}
+            initial={{ opacity: 0, x: 32 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -32 }}
+            transition={{ type: 'spring', bounce: 0.2, duration: 0.4 }}
+            className="flex flex-1 flex-col gap-6"
+          >
+            <div className="flex flex-col items-center gap-3 pt-4 text-center">
+              <BigAvatar player={currentPlayer} />
+              <div>
+                <h1 className="text-2xl font-bold">{currentPlayer.name}</h1>
+                <p className="text-muted-foreground text-sm">
+                  Round {roundNumber} · Player {scoredCount + 1} of{' '}
+                  {game.players.length}
+                </p>
+              </div>
+            </div>
+            <ScoreEntry onSubmit={handleSubmit} submitLabel="Save & pass" />
+          </motion.div>
+        )}
+
+        {effectivePhase === 'handoff' && currentPlayer && (
+          <motion.button
+            key="handoff"
+            ref={handoffRef}
+            type="button"
+            onClick={() => {
+              vibrate(8)
+              setPhase('scoring')
+            }}
+            initial={{ opacity: 0, scale: 0.96 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 1.02 }}
+            transition={{ type: 'spring', bounce: 0.3, duration: 0.4 }}
+            className="focus-visible:ring-ring/50 flex flex-1 cursor-pointer flex-col items-center justify-center gap-6 rounded-2xl text-center outline-none focus-visible:ring-4"
+            aria-label={`Pass the phone to ${currentPlayer.name}, then tap to continue`}
+          >
+            <motion.div
+              animate={{ y: [0, -8, 0] }}
+              transition={{
+                repeat: Infinity,
+                duration: 1.6,
+                ease: 'easeInOut',
+              }}
+            >
+              <BigAvatar player={currentPlayer} size={120} />
+            </motion.div>
+            <div className="space-y-1">
+              <p className="text-muted-foreground text-sm tracking-wide uppercase">
+                Pass the phone to
+              </p>
+              <p className="text-3xl font-bold">{currentPlayer.name}</p>
+            </div>
+            <span className="text-primary inline-flex items-center gap-2 font-medium">
+              Tap when ready <ArrowRight className="size-5" />
+            </span>
+          </motion.button>
+        )}
+
+        {effectivePhase === 'roundEnd' && (
+          <motion.div
+            key="roundEnd"
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: 'spring', bounce: 0.25, duration: 0.5 }}
+            className="flex flex-1 flex-col gap-5"
+          >
+            <div className="flex flex-col items-center gap-2 pt-2 text-center">
+              <PartyPopper className="text-primary size-8" aria-hidden />
+              <h1 className="text-2xl font-bold">Round {roundNumber} done</h1>
+              <p className="text-muted-foreground text-sm">
+                Here&apos;s where things stand.
+              </p>
+            </div>
+            <Leaderboard game={game} />
+            <div className="mt-auto flex flex-col gap-2 pt-2 pb-safe">
+              <Button
+                size="lg"
+                className="h-14 w-full text-base"
+                onClick={startNextRound}
+              >
+                Start round {roundNumber + 1}
+              </Button>
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => store().endGame(game.id)}
+              >
+                <Flag className="size-4" />
+                Finish game
+              </Button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  )
+}

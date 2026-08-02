@@ -3,9 +3,23 @@
 A mobile-first, card-game-inspired **scorekeeper**, built as an installable
 Progressive Web App.
 
-> **Status:** Foundation phase. The app shell, theming, navigation, and shared
-> component kit are in place. Scoring and game management arrive in later
-> phases.
+> **Status:** v1.0 — deployable. Create games, manage players, and keep score
+> in two modes: **Host Scorekeeper** and **Pass the Phone**. (Connected /
+> cross-device mode is stubbed as "coming soon".)
+
+## Features
+
+- **Two game modes** — Host Scorekeeper (one device sees all scores) and the
+  flagship Pass the Phone (per-player, one-handed, animated handoffs).
+- **Game setup** — 2–12 players, add / edit / remove, drag-and-drop ordering,
+  colour selection, initials avatars, target score (default 200).
+- **Live scoring** — running totals, ranked leaderboard, current-leader
+  highlighting, winner detection, end-game flow.
+- **Persistence** — games auto-save to localStorage; resume unfinished games or
+  delete them from the launcher.
+- **Installable PWA** — works offline, no account needed.
+- **Accessible & fast** — Lighthouse 96 / 100 / 100 / 100
+  (performance / a11y / best-practices / SEO).
 
 ## Tech stack
 
@@ -68,5 +82,23 @@ src/
 e2e/              # Playwright specs
 scripts/          # build-time tooling (icon generation)
 ```
+
+## Deploy (Cloudflare Pages)
+
+The app is a static SPA — build once and serve `dist/`.
+
+- **Build command:** `npm run build`
+- **Output directory:** `dist`
+- SPA routing + caching headers ship via `public/_redirects` and
+  `public/_headers`; `wrangler.toml` sets `pages_build_output_dir = "dist"`.
+
+**Dashboard:** create a Pages project from this repo with the build command and
+output directory above.
+
+**CLI:** `npx wrangler pages deploy dist --project-name=flipscore`
+
+**CI:** the `Deploy` workflow (`.github/workflows/deploy.yml`) publishes on
+manual dispatch once `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`
+repository secrets are set.
 
 See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the design rationale.

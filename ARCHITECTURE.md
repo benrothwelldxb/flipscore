@@ -89,9 +89,41 @@ unit tests → build**. Playwright e2e runs separately (`npm run test:e2e`) and 
 CI. Production vendors are split (`react-vendor`, `motion-vendor`) so the
 long-lived libraries cache independently of app code.
 
+## Domain & game state (v1.0)
+
+The game engine follows the same UI / logic / state / persistence split.
+
+- **`src/domain/`** — framework-free core. `types.ts` (Game, Player, Round,
+  Score, GameSettings, GameMode, LeaderboardEntry), `scoring.ts` (totals,
+  leaderboard, leader, winner detection — all pure), `game.ts` (factories +
+  pure state-machine transforms: `startGame`, `recordScore`, `advanceRound`,
+  `finishGame`, `reorderPlayers`), `validation.ts` (Zod schemas +
+  `validateScoreInput`), and `colors.ts` (player palette + contrast helper).
+  This layer has no React and is exhaustively unit-tested.
+- **`src/stores/game-store.ts`** — the Zustand store is a thin state-machine
+  driver: every action maps over `games`, applies a pure transform from
+  `domain/game`, and stamps `updatedAt`. Persistence uses the same versioned
+  `persist` pattern as the theme store; `hasHydrated` gates screens on a
+  loading state until localStorage is read back.
+- **UI** — screens under `components/game/` (`setup-screen`, `host-screen`,
+  `pass-the-phone-screen`, `results-screen`) are dispatched by
+  `pages/game.tsx` off `game.status` + `settings.mode`. They read the game via
+  selector hooks and call store actions; no domain logic lives in components.
+
+The **state machine** is `status: setup → playing → finished`, with rounds
+advancing inside `playing` and `recordScore` auto-transitioning to `finished`
+when a total reaches the target. Because transforms are pure, the whole flow is
+tested without rendering.
+
+Accessibility specifics for the game UI: custom radiogroups (colour + mode) use
+the ARIA radio pattern with roving tabindex and arrow keys; drag-and-drop
+(dnd-kit) announces reordering by player name; the Pass-the-Phone handoff moves
+focus and announces via a polite live region.
+
 ## What's intentionally deferred
 
-Domain models (Game, Player, Round, Score), the scoring state machine, game
-setup, and persistence of games are **not** in this phase. The layering above is
-the seam they slot into: new Zustand stores for game state, pure logic in
-`lib/`, and screens under `pages/`.
+**Connected mode** (real-time cross-device scoring) is stubbed in the UI as
+"coming soon" — it needs a sync backend and is out of scope for v1.0. Other
+future work: per-round score history/undo in the UI, richer stats, and a
+configurable win rule (currently highest-total-at-target). The domain layer is
+the seam these slot into without touching UI.

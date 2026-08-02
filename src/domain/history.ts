@@ -1,10 +1,12 @@
 import {
+  comebackWinnerId,
   finishedGames,
   gamePlayerLines,
+  maxDeficitFaced,
   normalizeName,
   type PlayerGameLine,
 } from './analysis'
-import type { Game } from './types'
+import type { AvatarConfig, Game, GameMode } from './types'
 
 /** One game on a player's timeline. */
 export interface TimelinePoint {
@@ -60,9 +62,19 @@ export interface Rivalry {
 export interface PlayerHistory {
   name: string
   color: string
+  /** Most recent avatar this player was seen with, if any. */
+  avatar?: AvatarConfig
   games: number
   wins: number
   winPct: number
+  /** Total busts across all games. */
+  busts: number
+  /** Games won from last place. */
+  comebacks: number
+  /** Largest points deficit ever overcome to win a game. */
+  bestComeback: number
+  /** The mode they play most (null if none). */
+  favouriteMode: GameMode | null
   timeline: TimelinePoint[]
   bests: PersonalBests
   /** Most recent games first (up to `recentCount`). */
@@ -113,6 +125,15 @@ export function computePlayerHistory(
   }
   let color = 'slate'
   let displayName = name
+  let avatar: AvatarConfig | undefined
+  let busts = 0
+  let comebacks = 0
+  let bestComeback = 0
+  const modeCounts: Record<GameMode, number> = {
+    host: 0,
+    pass: 0,
+    connected: 0,
+  }
 
   for (const game of finishedGames(games)) {
     const lines = gamePlayerLines(game)
@@ -127,6 +148,17 @@ export function computePlayerHistory(
 
     color = mine.color
     displayName = mine.name
+    const seated = game.players.find((p) => p.id === mine!.playerId)
+    if (seated?.avatar) avatar = seated.avatar
+    modeCounts[game.settings.mode] += 1
+    busts += mine.busts
+    if (comebackWinnerId(game) === mine.playerId) comebacks += 1
+    if (mine.won) {
+      bestComeback = Math.max(
+        bestComeback,
+        maxDeficitFaced(game, mine.playerId),
+      )
+    }
     timeline.push({
       gameId: game.id,
       date: game.finishedAt ?? game.updatedAt,
@@ -177,13 +209,22 @@ export function computePlayerHistory(
   ]
 
   const recentForm = [...timeline].reverse().slice(0, RECENT_COUNT)
+  const favouriteMode =
+    (Object.entries(modeCounts) as [GameMode, number][])
+      .filter(([, n]) => n > 0)
+      .sort((a, b) => b[1] - a[1])[0]?.[0] ?? null
 
   return {
     name: displayName,
     color,
+    avatar,
     games: gamesPlayed,
     wins,
     winPct: gamesPlayed ? wins / gamesPlayed : 0,
+    busts,
+    comebacks,
+    bestComeback,
+    favouriteMode,
     timeline,
     bests,
     recentForm,

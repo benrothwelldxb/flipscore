@@ -1,4 +1,5 @@
 export { Avatar, type AvatarExpression } from './avatar'
+export { AvatarSvg } from './avatar-svg'
 export {
   generateAvatar,
   randomAvatar,

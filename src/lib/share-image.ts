@@ -43,6 +43,18 @@ export function svgToPngBlob(
   })
 }
 
+/** Download a blob as a file (used for explicit "Save" actions). */
+export function downloadImage(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = filename
+  document.body.appendChild(anchor)
+  anchor.click()
+  anchor.remove()
+  URL.revokeObjectURL(url)
+}
+
 /**
  * Share a PNG blob via the Web Share API when it can carry files, otherwise
  * fall back to downloading it. Returns how it was handled.

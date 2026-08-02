@@ -1,3 +1,4 @@
+import { Link } from 'react-router'
 import { motion, useReducedMotion } from 'framer-motion'
 import { CalendarDays, MapPin, Share2, Trophy } from 'lucide-react'
 
@@ -161,7 +162,10 @@ export function NightSummary({ summary, onShare, sharing }: NightSummaryProps) {
                 <tr key={s.player.id} className="border-b last:border-0">
                   <td className="p-2 font-bold tabular-nums">{i + 1}</td>
                   <td className="p-2">
-                    <div className="flex items-center gap-2">
+                    <Link
+                      to={`/player/${encodeURIComponent(s.player.name)}`}
+                      className="hover:text-primary flex items-center gap-2"
+                    >
                       <PlayerAvatar
                         name={s.player.name}
                         color={s.player.color}
@@ -171,7 +175,7 @@ export function NightSummary({ summary, onShare, sharing }: NightSummaryProps) {
                       <span className="truncate font-medium">
                         {s.player.name}
                       </span>
-                    </div>
+                    </Link>
                   </td>
                   <td className="p-2 text-right font-semibold tabular-nums">
                     {s.wins}

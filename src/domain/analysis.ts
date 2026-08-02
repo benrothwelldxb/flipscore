@@ -21,8 +21,15 @@ export interface PlayerGameLine {
   highestRound: number
 }
 
-/** Per-player facts for one game, keyed by player id. */
+// Games are immutable (a mutation yields a new object), so a WeakMap keyed by
+// the game reference is a safe, self-invalidating cache — the per-game
+// leaderboard is otherwise recomputed many times across history/rivalries/nights.
+const lineCache = new WeakMap<Game, Map<string, PlayerGameLine>>()
+
+/** Per-player facts for one game, keyed by player id (memoised per game). */
 export function gamePlayerLines(game: Game): Map<string, PlayerGameLine> {
+  const cached = lineCache.get(game)
+  if (cached) return cached
   const totals = computeTotals(game)
   const rankById = new Map(
     computeLeaderboard(game).map((e) => [e.player.id, e.rank]),
@@ -52,6 +59,7 @@ export function gamePlayerLines(game: Game): Map<string, PlayerGameLine> {
       highestRound: roundScores.length ? Math.max(...roundScores) : 0,
     })
   }
+  lineCache.set(game, lines)
   return lines
 }
 
@@ -78,6 +86,27 @@ export function comebackWinnerId(game: Game): string | null {
     if (ahead === game.players.length - 1) fromLast = true
   }
   return fromLast ? winnerId : null
+}
+
+/**
+ * The largest deficit `playerId` faced at any point (the leader's cumulative
+ * total minus theirs). Combined with a win, this is how big a comeback was.
+ */
+export function maxDeficitFaced(game: Game, playerId: string): number {
+  const totals = new Map(game.players.map((p) => [p.id, 0]))
+  let worst = 0
+  for (const round of game.rounds) {
+    for (const [id, value] of Object.entries(round.scores)) {
+      if (totals.has(id)) totals.set(id, (totals.get(id) ?? 0) + value)
+    }
+    const mine = totals.get(playerId) ?? 0
+    let leader = mine
+    for (const [id, total] of totals) {
+      if (id !== playerId && total > leader) leader = total
+    }
+    worst = Math.max(worst, leader - mine)
+  }
+  return worst
 }
 
 /** Population standard deviation — our "consistency" measure (lower = steadier). */

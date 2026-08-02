@@ -12,7 +12,7 @@ import { clearJoin, loadJoin, saveJoin } from '@/net/join-storage'
 import type { RejectReason } from '@/net/protocol'
 import { RelayGuestTransport, RelayHostTransport } from '@/net/relay-transport'
 import { createRoomCode } from '@/net/room-code'
-import type { GuestTransport, HostTransport, PeerLink } from '@/net/transport'
+import type { GuestTransport, PeerLink } from '@/net/transport'
 import { answerQrOffer, createQrOffer, type QrOffer } from '@/net/webrtc-qr'
 import { useGameStore } from '@/stores/game-store'
 
@@ -80,7 +80,7 @@ interface NetState {
 // ---- Module-scope session refs (non-reactive) -----------------------------
 
 let hostController: HostController | null = null
-let hostTransport: HostTransport | null = null
+let hostTransport: RelayHostTransport | null = null
 let guestController: GuestController | null = null
 let guestTransport: GuestTransport | null = null
 let unsubscribeGame: (() => void) | null = null
@@ -96,7 +96,14 @@ let guestCreds: {
   token?: string
 } | null = null
 
-const MAX_RECONNECTS = 6
+// Host relay reconnection: the room code is kept stable across reconnects so
+// guests can always find the host at the same address.
+let hostReconnectTimer: ReturnType<typeof setTimeout> | null = null
+let hostReconnectAttempts = 0
+let hostTerminated = true
+let hostCreds: { gameId: string; roomCode: string } | null = null
+
+const MAX_RECONNECTS = 10
 
 export const useNetStore = create<NetState>()((set, get) => {
   function seatViews(seats: Seat[]): SeatView[] {
@@ -140,6 +147,56 @@ export const useNetStore = create<NetState>()((set, get) => {
         hostController?.broadcast()
       }
     })
+  }
+
+  /** (Re)open the host's relay socket for the current room, wiring peers and a
+   *  reconnect-on-close. The HostController (and its seats) is created once in
+   *  startHosting and survives across socket reconnects. */
+  function connectHostRelay(): void {
+    if (hostTerminated || !hostCreds) return
+    const previous = hostTransport
+    const transport = new RelayHostTransport(hostCreds.roomCode)
+    hostTransport = transport
+    // Close the old socket only after swapping, so its close callback (which
+    // compares against the current transport) knows it isn't the live one.
+    previous?.close()
+
+    transport.onPeer((link) => hostController?.addPeer(link))
+    transport.onError((error) => set({ error: error.message }))
+    transport.onClose(() => {
+      if (hostTerminated || transport !== hostTransport) return
+      scheduleHostReconnect()
+    })
+    set({
+      transportMode: 'relay',
+      roomCode: transport.roomCode,
+      hostReady: false,
+    })
+
+    transport.whenReady().then(
+      () => {
+        if (transport !== hostTransport) return
+        hostReconnectAttempts = 0
+        set({ hostReady: true, error: null })
+      },
+      (error) => {
+        if (transport !== hostTransport) return
+        set({ error: (error as Error).message })
+        // onClose will follow the failed open and drive the retry.
+      },
+    )
+  }
+
+  function scheduleHostReconnect(): void {
+    if (hostTerminated || !hostCreds) return
+    if (hostReconnectAttempts >= MAX_RECONNECTS) {
+      set({ error: 'Lost connection to the relay. Tap to try again.' })
+      return
+    }
+    hostReconnectAttempts += 1
+    const delay = Math.min(1000 * 2 ** (hostReconnectAttempts - 1), 8000)
+    set({ hostReady: false })
+    hostReconnectTimer = setTimeout(() => connectHostRelay(), delay)
   }
 
   function scheduleReconnect(): void {
@@ -227,6 +284,12 @@ export const useNetStore = create<NetState>()((set, get) => {
   }
 
   function teardownHost(): void {
+    // Mark terminated first so the transport's close callback won't reconnect.
+    hostTerminated = true
+    if (hostReconnectTimer) clearTimeout(hostReconnectTimer)
+    hostReconnectTimer = null
+    hostReconnectAttempts = 0
+    hostCreds = null
     unsubscribeGame?.()
     unsubscribeGame = null
     hostController?.close()
@@ -271,21 +334,10 @@ export const useNetStore = create<NetState>()((set, get) => {
         return
       }
 
-      const transport = new RelayHostTransport(createRoomCode())
-      hostTransport = transport
-      transport.onPeer((link) => hostController?.addPeer(link))
-      transport.onError((error) => set({ error: error.message }))
-      set({
-        transportMode: 'relay',
-        roomCode: transport.roomCode,
-        hostReady: false,
-      })
-      try {
-        await transport.whenReady()
-        set({ hostReady: true })
-      } catch (error) {
-        set({ error: (error as Error).message })
-      }
+      hostTerminated = false
+      hostReconnectAttempts = 0
+      hostCreds = { gameId, roomCode: createRoomCode() }
+      connectHostRelay()
     },
 
     createOffer: async () => {

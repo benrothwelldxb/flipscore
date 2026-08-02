@@ -83,7 +83,10 @@ export class SignalRoom {
 
     ws.addEventListener('message', (event) => {
       const message = parse(event.data)
-      if (!message || message.type !== 'to' || !message.peer) return
+      if (!message) return
+      // Keepalive: answer a ping so the socket never looks idle to the edge.
+      if (message.type === 'ping') return this.send(ws, { type: 'pong' })
+      if (message.type !== 'to' || !message.peer) return
       const guest = this.guests.get(message.peer)
       if (guest) this.send(guest, { type: 'from', data: message.data })
     })
@@ -111,7 +114,10 @@ export class SignalRoom {
 
     ws.addEventListener('message', (event) => {
       const message = parse(event.data)
-      if (!message || message.type !== 'to') return
+      if (!message) return
+      // Keepalive: answer a ping so the socket never looks idle to the edge.
+      if (message.type === 'ping') return this.send(ws, { type: 'pong' })
+      if (message.type !== 'to') return
       if (this.host)
         this.send(this.host, { type: 'from', peer, data: message.data })
     })

@@ -78,8 +78,14 @@ class FakeWebSocket {
     })
   }
 
+  readyState = 1
+
   addEventListener(type: string, cb: Listener): void {
     ;(this.listeners[type] ??= []).push(cb)
+  }
+
+  removeEventListener(type: string, cb: Listener): void {
+    this.listeners[type] = (this.listeners[type] ?? []).filter((x) => x !== cb)
   }
 
   send(raw: string): void {

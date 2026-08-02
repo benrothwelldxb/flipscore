@@ -19,6 +19,58 @@ function relayUrl(code: string, role: 'host' | 'guest'): string {
   return `${scheme}://${location.host}/rtc/${code}?role=${role}`
 }
 
+const WS_OPEN = 1
+
+/** How often to send a keepalive ping. Comfortably under the ~100s edge idle
+ *  timeout, so a quiet lobby or a long gap between scores never drops. */
+const PING_MS = 20_000
+/** Force a reconnect if no frame (not even a pong) arrives for this long — this
+ *  is what catches a half-open socket that TCP hasn't noticed is dead yet
+ *  (common after a phone sleeps or changes network). */
+const DEAD_MS = 55_000
+const PING_FRAME = JSON.stringify({ type: 'ping' })
+
+/**
+ * Keeps one socket alive and detects when it has silently died. Sends a ping on
+ * an interval and, on that same tick, declares the socket dead if nothing has
+ * been received recently — calling `onDead` so the owner can reconnect. Any
+ * inbound frame (the relay's pong, or real traffic) counts as liveness.
+ */
+export function startHeartbeat(
+  socket: Pick<
+    WebSocket,
+    'send' | 'readyState' | 'addEventListener' | 'removeEventListener'
+  >,
+  onDead: () => void,
+): () => void {
+  let lastRx = Date.now()
+  const touch = () => {
+    lastRx = Date.now()
+  }
+  socket.addEventListener('message', touch as EventListener)
+
+  const timer = setInterval(() => {
+    if (Date.now() - lastRx > DEAD_MS) {
+      stop()
+      onDead()
+      return
+    }
+    if (socket.readyState === WS_OPEN) {
+      try {
+        socket.send(PING_FRAME)
+      } catch {
+        // The next tick's liveness check (or the socket's own close) handles it.
+      }
+    }
+  }, PING_MS)
+
+  function stop(): void {
+    clearInterval(timer)
+    socket.removeEventListener('message', touch as EventListener)
+  }
+  return stop
+}
+
 interface RelayFrame {
   type: string
   peer?: string
@@ -86,7 +138,9 @@ export class RelayHostTransport implements HostTransport {
   private readonly links = new Map<string, RelayLink>()
   private readonly peerCbs: ((link: PeerLink) => void)[] = []
   private readonly errorCbs: ((error: Error) => void)[] = []
+  private readonly closeCbs: (() => void)[] = []
   private readonly ready: Promise<void>
+  private readonly stopHeartbeat: () => void
 
   constructor(roomCode: string) {
     this.roomCode = roomCode
@@ -104,9 +158,14 @@ export class RelayHostTransport implements HostTransport {
       this.emitError(new Error('Relay connection error.')),
     )
     this.socket.addEventListener('close', () => {
+      this.stopHeartbeat()
       for (const link of this.links.values()) link.close()
       this.links.clear()
+      for (const cb of this.closeCbs) cb()
     })
+    // Keep the host↔relay socket warm even with an empty lobby, and reconnect
+    // it (via onClose) the moment it goes quiet.
+    this.stopHeartbeat = startHeartbeat(this.socket, () => this.socket.close())
   }
 
   whenReady(): Promise<void> {
@@ -118,6 +177,10 @@ export class RelayHostTransport implements HostTransport {
   }
   onError(cb: (error: Error) => void): void {
     this.errorCbs.push(cb)
+  }
+  /** Fired when the underlying socket closes (for reconnect orchestration). */
+  onClose(cb: () => void): void {
+    this.closeCbs.push(cb)
   }
 
   private emitError(error: Error): void {
@@ -154,6 +217,7 @@ export class RelayHostTransport implements HostTransport {
   }
 
   close(): void {
+    this.stopHeartbeat()
     for (const link of this.links.values()) link.close()
     this.links.clear()
     try {
@@ -168,10 +232,14 @@ export class RelayGuestTransport implements GuestTransport {
   private readonly roomCode: string
   private readonly socket: WebSocket
   private link: RelayLink | null = null
+  private readonly stopHeartbeat: () => void
 
   constructor(roomCode: string) {
     this.roomCode = roomCode
     this.socket = new WebSocket(relayUrl(roomCode, 'guest'))
+    // Keep the guest↔relay socket warm; if it silently dies, close it so the
+    // net-store's guest reconnect loop takes over.
+    this.stopHeartbeat = startHeartbeat(this.socket, () => this.socket.close())
   }
 
   connect(): Promise<PeerLink> {
@@ -211,6 +279,7 @@ export class RelayGuestTransport implements GuestTransport {
   }
 
   close(): void {
+    this.stopHeartbeat()
     this.link?.close()
     try {
       this.socket.close()

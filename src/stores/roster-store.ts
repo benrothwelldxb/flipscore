@@ -3,23 +3,28 @@ import { persist } from 'zustand/middleware'
 import { useShallow } from 'zustand/react/shallow'
 
 import { createId } from '@/lib/id'
+import type { AvatarConfig } from '@/domain/types'
 
 /**
  * A small, persisted address book of players. Games remember the (real-named)
  * players they start with, so the next game can add them back with one tap
  * instead of retyping — which also keeps names consistent, and therefore keeps
- * per-player stats (aggregated by name) accurate across games.
+ * per-player stats (aggregated by name) accurate across games. The avatar is
+ * remembered too, so a returning player keeps the same face.
  */
 export interface SavedPlayer {
   id: string
   name: string
   color: string
+  avatar?: AvatarConfig
 }
 
 interface RosterState {
   players: SavedPlayer[]
-  /** Upsert players by normalised name (latest colour wins). */
-  rememberMany: (players: { name: string; color: string }[]) => void
+  /** Upsert players by normalised name (latest colour + avatar win). */
+  rememberMany: (
+    players: { name: string; color: string; avatar?: AvatarConfig }[],
+  ) => void
   forget: (id: string) => void
   clear: () => void
 }
@@ -44,7 +49,7 @@ export const useRosterStore = create<RosterState>()(
       rememberMany: (incoming) =>
         set((s) => {
           const byName = new Map(s.players.map((p) => [normalize(p.name), p]))
-          for (const { name, color } of incoming) {
+          for (const { name, color, avatar } of incoming) {
             if (!isRememberable(name)) continue
             const key = normalize(name)
             const existing = byName.get(key)
@@ -52,6 +57,7 @@ export const useRosterStore = create<RosterState>()(
               id: existing?.id ?? createId(),
               name: name.trim(),
               color,
+              avatar: avatar ?? existing?.avatar,
             })
           }
           return { players: [...byName.values()] }

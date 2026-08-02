@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router'
-import { motion } from 'framer-motion'
+import { motion, useReducedMotion } from 'framer-motion'
 import { Home, ListOrdered, RotateCcw, Trophy } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
@@ -21,6 +21,7 @@ interface ResultsScreenProps {
 export function ResultsScreen({ game }: ResultsScreenProps) {
   const navigate = useNavigate()
   const store = useGameStore.getState
+  const reduce = useReducedMotion()
   const winner = game.players.find((p) => p.id === game.winnerId) ?? null
 
   const celebrated = useRef(false)
@@ -40,9 +41,13 @@ export function ResultsScreen({ game }: ResultsScreenProps) {
   return (
     <div className="flex flex-col gap-6 py-4">
       <motion.div
-        initial={{ opacity: 0, scale: 0.9 }}
-        animate={{ opacity: 1, scale: 1 }}
-        transition={{ type: 'spring', bounce: 0.4, duration: 0.6 }}
+        initial={reduce ? false : { opacity: 0, scale: 0.9 }}
+        animate={reduce ? {} : { opacity: 1, scale: 1 }}
+        transition={
+          reduce
+            ? { duration: 0 }
+            : { type: 'spring', bounce: 0.4, duration: 0.6 }
+        }
         className="flex flex-col items-center gap-3 text-center"
       >
         <Trophy className="size-10 text-amber-500" aria-hidden />

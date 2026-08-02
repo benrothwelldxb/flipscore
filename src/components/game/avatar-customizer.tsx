@@ -141,24 +141,25 @@ function Swatches({
 }) {
   return (
     <div className="bg-muted/40 rounded-lg border px-3 py-2">
-      <p className="mb-1.5 text-sm font-medium">{label}</p>
+      <p id={`${label}-label`} className="mb-1.5 text-sm font-medium">
+        {label}
+      </p>
       <div
         className="flex flex-wrap gap-1.5"
-        role="radiogroup"
-        aria-label={label}
+        role="group"
+        aria-labelledby={`${label}-label`}
       >
-        {colours.map((colour) => {
+        {colours.map((colour, index) => {
           const selected = value.toLowerCase() === colour.toLowerCase()
           return (
             <button
               key={colour}
               type="button"
-              role="radio"
-              aria-checked={selected}
-              aria-label={colour}
+              aria-pressed={selected}
+              aria-label={`${label} ${index + 1}`}
               onClick={() => onPick(colour)}
               className={cn(
-                'size-7 rounded-full border border-black/10 outline-none transition',
+                'focus-visible:ring-ring size-7 rounded-full border border-black/10 outline-none transition focus-visible:ring-2 focus-visible:ring-offset-2',
                 selected
                   ? 'ring-foreground ring-2 ring-offset-2 ring-offset-background'
                   : '',

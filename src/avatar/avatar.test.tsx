@@ -1,8 +1,9 @@
 import { render } from '@testing-library/react'
 import { describe, expect, it } from 'vitest'
 
+import { generateAvatar } from '@/domain/avatar/generate'
+
 import { Avatar } from './avatar'
-import { generateAvatar } from './generate'
 
 const config = generateAvatar('Ben')
 

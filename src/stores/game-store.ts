@@ -16,13 +16,14 @@ import {
   setRoundScore,
   startGame as startGameTransform,
 } from '@/domain/game'
-import { generateAvatar } from '@/avatar/generate'
+import { generateAvatar } from '@/domain/avatar/generate'
 import { migrateGame } from '@/domain/migrate'
 import { createId } from '@/lib/id'
 import { useRosterStore } from '@/stores/roster-store'
 import {
   GAMES_SCHEMA_VERSION,
   PLAYER_LIMITS,
+  type AvatarConfig,
   type Game,
   type GameMode,
   type GameSettings,
@@ -76,8 +77,14 @@ interface GameState {
     id: string,
     host: { name: string; color: string } | null,
   ) => string | null
-  /** Add a named player (e.g. from the saved roster), respecting the max. */
-  addNamedPlayer: (id: string, name: string, color: string) => void
+  /** Add a named player (e.g. from the saved roster), respecting the max.
+   *  A saved avatar is reused so a returning player keeps the same face. */
+  addNamedPlayer: (
+    id: string,
+    name: string,
+    color: string,
+    avatar?: AvatarConfig,
+  ) => void
   /** Add a player who has joined a connected lobby; returns the new player id. */
   addConnectedPlayer: (id: string, name: string, color: string) => string
   /** Remove a lobby player (no minimum-count guard, unlike removePlayer). */
@@ -230,7 +237,7 @@ export const useGameStore = create<GameState>()(
         }
       },
 
-      addNamedPlayer: (id, name, color) =>
+      addNamedPlayer: (id, name, color, avatar) =>
         set((s) => ({
           games: mapGame(s.games, id, (g) =>
             g.players.length >= PLAYER_LIMITS.max
@@ -244,7 +251,7 @@ export const useGameStore = create<GameState>()(
                       name,
                       color,
                       order: g.players.length,
-                      avatar: generateAvatar(name),
+                      avatar: avatar ?? generateAvatar(name),
                     },
                   ],
                 },

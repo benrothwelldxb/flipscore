@@ -1,4 +1,4 @@
-import { INK, SKIN_TONES, shade } from './palette'
+import { INK, SKIN_TONES, shade } from '@/domain/avatar/palette'
 
 /**
  * Pure SVG feature components on a shared 100×100 view box. Every part is a

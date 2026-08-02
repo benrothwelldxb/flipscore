@@ -39,7 +39,12 @@ export function SavedPlayersRow({
                 type="button"
                 disabled={disabled}
                 onClick={() =>
-                  addNamedPlayer(gameId, player.name, player.color)
+                  addNamedPlayer(
+                    gameId,
+                    player.name,
+                    player.color,
+                    player.avatar,
+                  )
                 }
                 className="focus-visible:ring-ring/50 flex items-center gap-1 rounded-full border py-1 pr-2 pl-1 text-sm font-medium outline-none transition hover:brightness-95 focus-visible:ring-2 disabled:opacity-40"
                 aria-label={`Add ${player.name}`}

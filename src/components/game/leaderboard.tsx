@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion'
+import { motion, useReducedMotion } from 'framer-motion'
 import { Target } from 'lucide-react'
 
 import { CountUp } from '@/components/common/count-up'
@@ -24,19 +24,24 @@ function rankClass(rank: number): string {
 export function Leaderboard({ game, className }: LeaderboardProps) {
   const entries = computeLeaderboard(game)
   const round = game.rounds[game.currentRoundIndex]
+  const reduce = useReducedMotion()
 
   return (
     <ol className={cn('flex flex-col gap-2', className)}>
       {entries.map((entry, index) => (
         <motion.li
           key={entry.player.id}
-          layout
-          initial={{ opacity: 0, y: 8 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{
-            layout: { type: 'spring', bounce: 0.2, duration: 0.5 },
-            delay: index * 0.04,
-          }}
+          layout={!reduce}
+          initial={reduce ? false : { opacity: 0, y: 8 }}
+          animate={reduce ? {} : { opacity: 1, y: 0 }}
+          transition={
+            reduce
+              ? { duration: 0 }
+              : {
+                  layout: { type: 'spring', bounce: 0.2, duration: 0.5 },
+                  delay: index * 0.04,
+                }
+          }
           className={cn(
             'flex items-center gap-3 rounded-xl border p-3',
             entry.isLeader

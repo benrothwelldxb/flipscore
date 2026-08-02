@@ -1,4 +1,4 @@
-import { generateAvatar } from '@/avatar/generate'
+import { generateAvatar } from '@/domain/avatar/generate'
 import { createId } from '@/lib/id'
 
 import { colorForIndex } from './colors'

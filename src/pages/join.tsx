@@ -8,11 +8,25 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { PLAYER_COLORS, readableTextColor } from '@/domain/colors'
+import { isScannerSupported } from '@/lib/barcode'
 import { loadJoin } from '@/net/join-storage'
 import { decodeSignal, isWebRtcSupported } from '@/net/webrtc-qr'
 import { isValidRoomCode, normalizeRoomCode } from '@/net/room-code'
 import { cn } from '@/lib/utils'
 import { useNetStore } from '@/stores/net-store'
+
+/** Extract a room code from a scanned join QR (a `/join?r=CODE` URL) or a bare
+ *  code. The host's online QR encodes the join link, so it's scannable too. */
+function codeFromScan(text: string): string | null {
+  const trimmed = text.trim()
+  try {
+    const r = new URL(trimmed).searchParams.get('r')
+    if (r && isValidRoomCode(r)) return normalizeRoomCode(r)
+  } catch {
+    // Not a URL — fall through to treat it as a bare code.
+  }
+  return isValidRoomCode(trimmed) ? normalizeRoomCode(trimmed) : null
+}
 
 /** Guest entry point (`/join`). Falls through to the live session once joined. */
 export function JoinPage() {
@@ -139,6 +153,36 @@ function JoinForm() {
             onChange={(event) => setCode(event.target.value.toUpperCase())}
             className="text-center font-mono text-lg tracking-[0.3em]"
           />
+          {isScannerSupported() && (
+            <div className="pt-1">
+              <div className="text-muted-foreground mb-2 flex items-center gap-2 text-xs">
+                <span className="bg-border h-px flex-1" />
+                or scan the host’s QR
+                <span className="bg-border h-px flex-1" />
+              </div>
+              <QrScanner
+                hidePaste
+                onResult={(text) => {
+                  const scanned = codeFromScan(text)
+                  if (!scanned) {
+                    setError('That QR code isn’t a FlipScorer game.')
+                    return
+                  }
+                  setCode(scanned)
+                  setError(null)
+                  // Scanning is a clear intent to join — go straight in if we
+                  // already have a name.
+                  if (name.trim()) {
+                    void joinRelay({
+                      roomCode: scanned,
+                      name: name.trim(),
+                      color,
+                    })
+                  }
+                }}
+              />
+            </div>
+          )}
         </div>
       ) : !isWebRtcSupported() ? (
         <p className="text-muted-foreground rounded-xl border p-4 text-center text-sm">

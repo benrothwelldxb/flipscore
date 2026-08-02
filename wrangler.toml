@@ -1,10 +1,25 @@
-# Cloudflare Worker serving the built SPA as static assets.
-# Build command:  npm run build   (produces ./dist)
+# Cloudflare Worker: serves the built SPA as static assets AND hosts the
+# Connected-mode signaling relay (a Durable Object per room).
+#
+# Build command:  npm run build          (produces ./dist)
 # Deploy command: npx wrangler deploy
 name = "flipscorer"
 compatibility_date = "2026-08-02"
+main = "worker/index.ts"
 
 [assets]
 directory = "./dist"
+binding = "ASSETS"
 # Serve index.html for unknown paths so client-side routes work (SPA).
 not_found_handling = "single-page-application"
+
+# The signaling room that relays WebRTC/handshake + fallback game data between a
+# host and its guests. It keeps no persistent storage (a pure in-memory router),
+# so the SQLite-backed class works on the Workers free plan.
+[[durable_objects.bindings]]
+name = "SIGNAL_ROOM"
+class_name = "SignalRoom"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["SignalRoom"]

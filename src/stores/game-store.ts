@@ -18,6 +18,7 @@ import {
 } from '@/domain/game'
 import { migrateGame } from '@/domain/migrate'
 import { createId } from '@/lib/id'
+import { useRosterStore } from '@/stores/roster-store'
 import {
   GAMES_SCHEMA_VERSION,
   PLAYER_LIMITS,
@@ -69,6 +70,17 @@ interface GameState {
   updateSettings: (id: string, patch: Partial<GameSettings>) => void
 
   startGame: (id: string) => void
+  /** Reset a connected game to an empty lobby (optionally seating the host). */
+  beginConnectedLobby: (
+    id: string,
+    host: { name: string; color: string } | null,
+  ) => string | null
+  /** Add a named player (e.g. from the saved roster), respecting the max. */
+  addNamedPlayer: (id: string, name: string, color: string) => void
+  /** Add a player who has joined a connected lobby; returns the new player id. */
+  addConnectedPlayer: (id: string, name: string, color: string) => string
+  /** Remove a lobby player (no minimum-count guard, unlike removePlayer). */
+  removeConnectedPlayer: (id: string, playerId: string) => void
   submitScore: (
     id: string,
     playerId: string,
@@ -203,11 +215,80 @@ export const useGameStore = create<GameState>()(
           })),
         })),
 
-      startGame: (id) =>
+      startGame: (id) => {
+        const game = get().games.find((g) => g.id === id)
         set((s) => ({
           games: mapGame(s.games, id, (g) =>
             g.players.length >= PLAYER_LIMITS.min ? startGameTransform(g) : g,
           ),
+        }))
+        // Remember the roster so it can be reused next time (keeps names — and
+        // therefore stats — consistent across games).
+        if (game && game.players.length >= PLAYER_LIMITS.min) {
+          useRosterStore.getState().rememberMany(game.players)
+        }
+      },
+
+      addNamedPlayer: (id, name, color) =>
+        set((s) => ({
+          games: mapGame(s.games, id, (g) =>
+            g.players.length >= PLAYER_LIMITS.max
+              ? g
+              : {
+                  ...g,
+                  players: [
+                    ...g.players,
+                    {
+                      id: createId(),
+                      name,
+                      color,
+                      order: g.players.length,
+                    },
+                  ],
+                },
+          ),
+        })),
+
+      beginConnectedLobby: (id, host) => {
+        const hostId = host ? createId() : null
+        set((s) => ({
+          games: mapGame(s.games, id, (g) => ({
+            ...g,
+            players:
+              host && hostId
+                ? [{ id: hostId, name: host.name, color: host.color, order: 0 }]
+                : [],
+            rounds: [],
+            status: 'setup',
+            currentRoundIndex: 0,
+            winnerId: null,
+          })),
+        }))
+        return hostId
+      },
+
+      addConnectedPlayer: (id, name, color) => {
+        const playerId = createId()
+        set((s) => ({
+          games: mapGame(s.games, id, (g) => ({
+            ...g,
+            players: [
+              ...g.players,
+              { id: playerId, name, color, order: g.players.length },
+            ],
+          })),
+        }))
+        return playerId
+      },
+
+      removeConnectedPlayer: (id, playerId) =>
+        set((s) => ({
+          games: mapGame(s.games, id, (g) => ({
+            ...g,
+            players: g.players
+              .filter((p) => p.id !== playerId)
+              .map((p, index) => ({ ...p, order: index })),
+          })),
         })),
 
       submitScore: (id, playerId, value, flags) =>

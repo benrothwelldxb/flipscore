@@ -3,14 +3,23 @@
 A mobile-first, card-game-inspired **scorekeeper**, built as an installable
 Progressive Web App.
 
-> **Status:** v1.0 — deployable. Create games, manage players, and keep score
-> in two modes: **Host Scorekeeper** and **Pass the Phone**. (Connected /
-> cross-device mode is stubbed as "coming soon".)
+> **Status:** deployable. Create games, manage players, and keep score in three
+> modes: **Host Scorekeeper**, **Pass the Phone**, and **Connected** (everyone
+> scores live from their own phone).
 
 ## Features
 
-- **Two game modes** — Host Scorekeeper (one device sees all scores) and the
-  flagship Pass the Phone (per-player, one-handed, animated handoffs).
+- **Three game modes** — Host Scorekeeper (one device sees all scores), the
+  flagship Pass the Phone (per-player, one-handed, animated handoffs), and
+  Connected (each player joins from their own phone and enters only their own
+  score, with the host authoritative).
+- **Connected mode** — players join by scanning a QR / opening a link (online,
+  via a Cloudflare Durable Object relay) or by a serverless **WebRTC-over-QR**
+  handshake that needs **no internet** on a shared Wi-Fi. Handles reconnects,
+  disconnects, host-leaving, and connection loss; a dropped or reloaded player
+  reclaims their seat automatically.
+- **Saved players** — games remember the players they start with, so the next
+  game adds a whole roster back with one tap (and keeps stats consistent).
 - **Game setup** — 2–12 players, add / edit / remove, drag-and-drop ordering,
   colour selection, initials avatars, target score (default 200).
 - **Live scoring** — running totals, ranked leaderboard, current-leader
@@ -105,15 +114,20 @@ scripts/          # build-time tooling (icon generation)
 The app is a static SPA — build once and serve `dist/`. Both Cloudflare
 products work; pick one.
 
-**Worker + static assets (matches `wrangler.toml`)**
+**Worker + static assets + relay (matches `wrangler.toml`)**
 
 - Build command: `npm run build`
 - Deploy command: `npx wrangler deploy`
-- `wrangler.toml` serves `./dist` as assets with
-  `not_found_handling = "single-page-application"` — this handles client-side
-  routing, so **no `_redirects` file is used** (a `/* /index.html 200` rule is
-  rejected as a loop by the Workers assets deploy).
+- The Worker serves `./dist` as assets with
+  `not_found_handling = "single-page-application"` (handles client-side routing,
+  so **no `_redirects` file is used**) and hosts the Connected-mode signaling
+  relay — a `SignalRoom` Durable Object at `/rtc/<code>`. The DO keeps no
+  persistent storage, so its SQLite-backed class works on the Workers free plan.
+- Local dev with the relay: `npm run build && npx wrangler dev` (Connected
+  online mode needs the Worker; the plain Vite dev server serves the SPA only).
 - The Worker name in `wrangler.toml` must match your Worker (`flipscorer`).
+- Connected **offline** mode is pure peer-to-peer (WebRTC + QR) and needs no
+  server at all.
 
 **Pages (alternative)**
 

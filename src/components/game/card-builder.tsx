@@ -174,7 +174,10 @@ export function CardBuilder({
           type="button"
           variant={selection.busted ? 'destructive' : 'outline'}
           aria-pressed={selection.busted}
-          className={cn('h-11 shrink-0', !selection.busted && 'text-destructive')}
+          className={cn(
+            'h-11 shrink-0',
+            !selection.busted && 'text-destructive',
+          )}
           onClick={() => update(toggleBust(selection))}
         >
           <Ban className="size-4" />

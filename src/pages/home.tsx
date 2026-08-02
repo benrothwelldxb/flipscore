@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router'
 import { motion } from 'framer-motion'
-import { Archive, ChartColumn, Plus, Spade } from 'lucide-react'
+import { Archive, ChartColumn, Plus, Spade, Wifi } from 'lucide-react'
 
 import { Wordmark } from '@/components/brand/wordmark'
 import { EmptyState, LoadingState } from '@/components/common/screen-state'
@@ -44,6 +44,13 @@ export function HomePage() {
       <Button size="lg" className="h-14 w-full text-base" onClick={newGame}>
         <Plus className="size-5" />
         New game
+      </Button>
+
+      <Button asChild variant="outline" className="h-11 w-full">
+        <Link to="/join">
+          <Wifi className="size-4" />
+          Join a game
+        </Link>
       </Button>
 
       <div className="grid grid-cols-2 gap-2">

@@ -143,7 +143,11 @@ describe('computeStats', () => {
         deletedAt: 500,
       }),
     ]
-    expect(computeStats(games).totalGames).toBe(0)
+    const summary = computeStats(games)
+    expect(summary.totalGames).toBe(0)
+    expect(summary.players).toEqual([])
+    // Records (e.g. longest streak) must not survive the game's deletion.
+    expect(summary.records).toEqual({})
     expect(computeStats([]).players).toEqual([])
   })
 })

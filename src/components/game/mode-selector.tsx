@@ -2,7 +2,6 @@ import { useRef, type KeyboardEvent } from 'react'
 import { Radio, Smartphone, Wifi, type LucideIcon } from 'lucide-react'
 
 import type { GameMode } from '@/domain/types'
-import { useToast } from '@/hooks/use-toast'
 import { cn } from '@/lib/utils'
 
 interface ModeOption {
@@ -10,7 +9,6 @@ interface ModeOption {
   title: string
   description: string
   icon: LucideIcon
-  comingSoon?: boolean
 }
 
 const MODES: ModeOption[] = [
@@ -30,9 +28,8 @@ const MODES: ModeOption[] = [
   {
     key: 'connected',
     title: 'Connected',
-    description: 'Everyone scores live from their own phone.',
+    description: 'Everyone joins from their own phone and scores live.',
     icon: Wifi,
-    comingSoon: true,
   },
 ]
 
@@ -42,18 +39,7 @@ interface ModeSelectorProps {
 }
 
 export function ModeSelector({ value, onChange }: ModeSelectorProps) {
-  const { toast } = useToast()
   const refs = useRef<(HTMLButtonElement | null)[]>([])
-
-  function select(mode: ModeOption) {
-    if (mode.comingSoon) {
-      toast('Connected mode is coming soon', {
-        description: 'Cross-device scoring lands in a future update.',
-      })
-    } else {
-      onChange(mode.key)
-    }
-  }
 
   function handleKeyDown(event: KeyboardEvent, index: number) {
     const forward = event.key === 'ArrowDown' || event.key === 'ArrowRight'
@@ -63,8 +49,7 @@ export function ModeSelector({ value, onChange }: ModeSelectorProps) {
     const delta = forward ? 1 : -1
     const next = (index + delta + MODES.length) % MODES.length
     refs.current[next]?.focus()
-    const mode = MODES[next]
-    if (!mode.comingSoon) onChange(mode.key)
+    onChange(MODES[next].key)
   }
 
   return (
@@ -85,17 +70,15 @@ export function ModeSelector({ value, onChange }: ModeSelectorProps) {
             type="button"
             role="radio"
             aria-checked={selected}
-            aria-disabled={mode.comingSoon || undefined}
             tabIndex={selected ? 0 : -1}
             onKeyDown={(event) => handleKeyDown(event, index)}
-            onClick={() => select(mode)}
+            onClick={() => onChange(mode.key)}
             className={cn(
               'flex items-start gap-3 rounded-xl border p-4 text-left transition outline-none',
               'focus-visible:ring-ring/50 focus-visible:ring-[3px]',
               selected
                 ? 'border-primary bg-primary/5 ring-primary ring-1'
                 : 'bg-card border-border',
-              mode.comingSoon && 'opacity-65',
             )}
           >
             <Icon
@@ -108,11 +91,6 @@ export function ModeSelector({ value, onChange }: ModeSelectorProps) {
             <span className="flex-1">
               <span className="flex items-center gap-2 font-semibold">
                 {mode.title}
-                {mode.comingSoon && (
-                  <span className="bg-muted text-muted-foreground rounded-full px-2 py-0.5 text-xs font-medium">
-                    Coming soon
-                  </span>
-                )}
               </span>
               <span className="text-muted-foreground mt-0.5 block text-sm">
                 {mode.description}

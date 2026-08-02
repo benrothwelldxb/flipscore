@@ -18,8 +18,10 @@ import { Label } from '@/components/ui/label'
 import { DEFAULT_TARGET_SCORE, PLAYER_LIMITS, type Game } from '@/domain/types'
 import { useGameStore } from '@/stores/game-store'
 
+import { ConnectedSetupPanel } from './connected/connected-setup-panel'
 import { ModeSelector } from './mode-selector'
 import { PlayerEditor } from './player-editor'
+import { SavedPlayersRow } from './saved-players-row'
 
 interface SetupScreenProps {
   game: Game
@@ -33,6 +35,7 @@ export function SetupScreen({ game }: SetupScreenProps) {
 
   const store = useGameStore.getState
 
+  const connected = game.settings.mode === 'connected'
   const namesValid = game.players.every((p) => p.name.trim().length > 0)
   const canStart = game.players.length >= PLAYER_LIMITS.min && namesValid
   const atMax = game.players.length >= PLAYER_LIMITS.max
@@ -87,35 +90,42 @@ export function SetupScreen({ game }: SetupScreenProps) {
         />
       </section>
 
-      <section className="space-y-2">
-        <div className="flex items-center justify-between">
-          <h2 className="text-sm leading-none font-medium">
-            Players ({game.players.length})
-          </h2>
-          <span className="text-muted-foreground text-xs">
-            {PLAYER_LIMITS.min}–{PLAYER_LIMITS.max}
-          </span>
-        </div>
-        <PlayerEditor
-          players={game.players}
-          onRename={(id, name) => store().updatePlayer(game.id, id, { name })}
-          onRecolor={(id, color) =>
-            store().updatePlayer(game.id, id, { color })
-          }
-          onRemove={(id) => store().removePlayer(game.id, id)}
-          onReorder={(ids) => store().reorderPlayers(game.id, ids)}
-        />
-        <Button
-          type="button"
-          variant="outline"
-          className="w-full"
-          onClick={() => store().addPlayer(game.id)}
-          disabled={atMax}
-        >
-          <UserPlus className="size-4" />
-          {atMax ? 'Maximum players reached' : 'Add player'}
-        </Button>
-      </section>
+      {!connected && (
+        <section className="space-y-2">
+          <div className="flex items-center justify-between">
+            <h2 className="text-sm leading-none font-medium">
+              Players ({game.players.length})
+            </h2>
+            <span className="text-muted-foreground text-xs">
+              {PLAYER_LIMITS.min}–{PLAYER_LIMITS.max}
+            </span>
+          </div>
+          <PlayerEditor
+            players={game.players}
+            onRename={(id, name) => store().updatePlayer(game.id, id, { name })}
+            onRecolor={(id, color) =>
+              store().updatePlayer(game.id, id, { color })
+            }
+            onRemove={(id) => store().removePlayer(game.id, id)}
+            onReorder={(ids) => store().reorderPlayers(game.id, ids)}
+          />
+          <Button
+            type="button"
+            variant="outline"
+            className="w-full"
+            onClick={() => store().addPlayer(game.id)}
+            disabled={atMax}
+          >
+            <UserPlus className="size-4" />
+            {atMax ? 'Maximum players reached' : 'Add player'}
+          </Button>
+          <SavedPlayersRow
+            gameId={game.id}
+            currentNames={game.players.map((p) => p.name)}
+            disabled={atMax}
+          />
+        </section>
+      )}
 
       <section className="grid grid-cols-2 gap-3">
         <div className="space-y-2">
@@ -143,22 +153,26 @@ export function SetupScreen({ game }: SetupScreenProps) {
         </div>
       </section>
 
-      <div className="bg-background/80 sticky bottom-0 -mx-4 border-t px-4 pt-3 pb-safe backdrop-blur">
-        <Button
-          size="lg"
-          className="h-14 w-full text-base"
-          disabled={!canStart}
-          onClick={() => store().startGame(game.id)}
-        >
-          <Play className="size-5" />
-          Start game
-        </Button>
-        {!canStart && (
-          <p className="text-muted-foreground mt-2 text-center text-xs">
-            Every player needs a name to start.
-          </p>
-        )}
-      </div>
+      {connected ? (
+        <ConnectedSetupPanel game={game} />
+      ) : (
+        <div className="bg-background/80 sticky bottom-0 -mx-4 border-t px-4 pt-3 pb-safe backdrop-blur">
+          <Button
+            size="lg"
+            className="h-14 w-full text-base"
+            disabled={!canStart}
+            onClick={() => store().startGame(game.id)}
+          >
+            <Play className="size-5" />
+            Start game
+          </Button>
+          {!canStart && (
+            <p className="text-muted-foreground mt-2 text-center text-xs">
+              Every player needs a name to start.
+            </p>
+          )}
+        </div>
+      )}
     </div>
   )
 }

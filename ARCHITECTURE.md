@@ -153,10 +153,74 @@ focus and announces via a polite live region.
   win-rate rings, animated bars, stat tiles, record cards — theme-aware and
   dependency-free.
 
+## Connected mode (cross-device, host-authoritative)
+
+Connected mode lets everyone score from their own phone. The design keeps the
+**game rules in one tested, transport-agnostic core** and treats the network as
+a swappable detail.
+
+- **Topology — host-authoritative star.** The host owns the one true `Game`
+  (in the games store); guests hold a read-only replica and may only _request_
+  their own score. Guests never talk to each other. This is the whole security
+  model: a guest can't move another player, edit the past, or advance a round.
+- **Pure session logic** (`src/net/host-session.ts`) decides every authority
+  question — who may join, whether a score is legal, how a reconnect token maps
+  to a seat — as pure functions, unit-tested without a network.
+- **Controllers** (`host-controller.ts` / `guest-controller.ts`) drive the
+  protocol over a `PeerLink` (a duplex string channel) and a `HostBridge`
+  (the only seam to the store). Because both are abstract, the _same_ code runs
+  over a real transport or the in-process mock link the tests use.
+- **Protocol** (`src/net/protocol.ts`) is a small, **versioned**, Zod-validated
+  JSON message set. Untrusted peer input is never trusted without parsing;
+  snapshots are normalised through `migrateGame` exactly like an imported file.
+- **Two transports, one interface** — the hybrid the app ships:
+  - **Online: a Cloudflare Durable Object relay** (`worker/signal-room.ts`,
+    one DO per room code). The host shows a QR of a join link; a guest opens it
+    (a phone's camera does this natively) and the relay shuttles opaque
+    messages between them. Robust reconnects/disconnects; needs internet. The
+    room refuses a second `role=host` while a host is attached (so a party that
+    knows the code can't supplant the authoritative host) and caps concurrent
+    guests. The host only ever broadcasts to _seated_ peers, so a lurker that
+    connects without joining sees no game state.
+  - **Offline: serverless WebRTC over QR** (`src/net/webrtc-qr.ts`). A direct
+    data channel whose offer/answer are exchanged as QR codes — **no server,
+    no internet**, just a shared Wi-Fi/hotspot. ICE is gathered non-trickle so
+    each SDP is a single scannable blob; scanning uses the native
+    `BarcodeDetector` with a paste fallback.
+- **Resilience.** Dropped sockets auto-reconnect with backoff, reusing a saved
+  token so the guest reclaims its seat with scores intact; a full page reload
+  auto-rejoins from the same token (`src/net/join-storage.ts`). Host-leaving,
+  kicks, rejects (full / name-taken / started / version) and connection loss all
+  surface as explicit guest states. A host reload ends the session; the host can
+  keep scoring locally.
+- **Orchestration** (`src/stores/net-store.ts`) wires transport → controllers →
+  games store and mirrors just enough state into React. Non-serialisable refs
+  (controllers, sockets, timers) live at module scope; only observable facts are
+  in the store.
+
+Both signaling paths were verified end-to-end in real browsers against a live
+Durable Object (`wrangler dev`): join, live scoring, host receipt, round
+advance, and reconnect-after-reload.
+
+## Saved players (reusable roster)
+
+`src/stores/roster-store.ts` is a small persisted address book. `startGame` — the
+single choke point for every mode — upserts the game's (real-named) players into
+it, skipping the seeded `Player N` placeholders. The setup screen then offers
+one-tap re-add. Because stats aggregate by **name**, reusing saved players keeps
+a person's history consistent across games.
+
 ## What's intentionally deferred
 
-**Connected mode** (real-time cross-device scoring) is stubbed in the UI as
-"coming soon" — it needs a sync backend and is out of scope for v1.0. Other
-future work: per-round score history/undo in the UI, richer stats, and a
-configurable win rule (currently highest-total-at-target). The domain layer is
-the seam these slot into without touching UI.
+Known limitation — **host resume**: the seat table (playerId ↔ reconnect token)
+lives in memory and the room code is minted per hosting session, so a host
+_reload/crash_ ends the session (guests see "connection lost"); guest reconnects
+survive host _disconnects_ but not host restarts. Persisting the seat table and
+resuming the same room code would make host resume symmetric with guest resume.
+
+Future work: host resume (above); token-based host authentication at the relay
+(the current guard refuses a concurrent second host, which covers the common
+case); a WebRTC upgrade on the online path (so play continues P2P/LAN even after
+the relay is used for join); per-round history in the guest UI; richer stats; and
+a configurable win rule (currently highest-total-at-target). The pure domain and
+`PeerLink`/transport seams are where these slot in without touching the rest.

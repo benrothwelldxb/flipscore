@@ -49,9 +49,11 @@ Progressive Web App.
   average score and finishing position, longest win streak, most Flip 7
   bonuses and busts — with hand-built, theme-aware charts that update
   automatically after every game.
-- **Installable PWA** — works offline, no account needed.
-- **Accessible & fast** — Lighthouse 94 / 100 / 100 / 100
-  (performance / a11y / best-practices / SEO).
+- **Installable PWA** — works offline, no account needed. Maskable icons,
+  shortcuts, social sharing image, and iOS launch screens.
+- **Accessible & fast** — Lighthouse (mobile, throttled) ≈ 93 performance ·
+  100 accessibility · 100 best-practices · 100 SEO; zero serious/critical axe
+  violations across the core screens.
 
 ## Tech stack
 
@@ -97,22 +99,23 @@ npm run dev          # start the dev server
 
 ```
 src/
+  domain/         # framework-free core: scoring, game state machine, Flip 7
+                  #   engine, stats, validation, backup — exhaustively tested
+  net/            # Connected mode: protocol, host/guest sessions, transports
+                  #   (relay + WebRTC-QR), controllers — transport-agnostic core
+  vision/         # Camera Scoring: pluggable recognizer, OCR, pure parsers
+  stores/         # Zustand stores (game, net, roster, prefs, theme)
   components/
-    brand/        # app icon + wordmark
-    layout/       # app shell (header + layout)
-    theme/        # theme provider + toggle
-    ui/           # shadcn/ui primitives (button, card, dialog, toaster)
-    error-boundary.tsx
-  hooks/          # app-level hooks (use-toast)
-  lib/            # framework-agnostic helpers (cn)
-  pages/          # route screens (home, not-found)
-  stores/         # Zustand stores (theme)
-  test/           # test setup
-  router.tsx      # route table
-  App.tsx         # providers + router composition
-  main.tsx        # entry point
+    game/         # setup, host/pass/connected screens, card builder, scorer
+    stats/        # hand-built SVG/CSS charts
+    net/          # QR code + scanner
+    brand/ layout/ theme/ ui/   # brand art, app shell, theming, shadcn/ui
+  pages/          # route screens (home, join, game, archive, stats, 404)
+  lib/            # framework-agnostic helpers (cn, id, haptics, sound, …)
+  router.tsx  App.tsx  main.tsx
+worker/           # Cloudflare Worker + SignalRoom Durable Object (relay)
 e2e/              # Playwright specs
-scripts/          # build-time tooling (icon generation)
+scripts/          # build-time tooling (icon / OG / splash generation)
 ```
 
 ## Deploy (Cloudflare)
@@ -135,16 +138,26 @@ products work; pick one.
 - Connected **offline** mode is pure peer-to-peer (WebRTC + QR) and needs no
   server at all.
 
-**Pages (alternative)**
+This is the **recommended** deploy — it's the only one that hosts the online
+Connected relay.
 
-- Build command: `npm run build`, output directory: `dist`, production branch
-  `main`.
-- Pages has no `not_found_handling`, so for SPA routing add a
-  `public/_redirects` containing `/* /index.html 200`. `public/_headers` is
-  honoured as-is.
+**Pages (alternative — static)**
+
+- Everything works on Pages **except online Connected mode** (its relay is a
+  Durable Object, hosted only by the Worker). Offline Connected (WebRTC + QR)
+  still works.
+- Build: `npm run build`, output `dist`. For SPA routing add a `dist/_redirects`
+  with `/* /index.html 200` (the deploy workflow injects this; don't commit it
+  to `public/`, or the Worker assets deploy rejects it as a loop).
 - CLI: `npx wrangler pages deploy dist --project-name=<your-project>`.
 
-The `Deploy` workflow (`.github/workflows/deploy.yml`) can publish on manual
-dispatch once `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID` secrets exist.
+**CI/CD** — `.github/workflows/`:
 
-See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the design rationale.
+- `ci.yml` runs the full gate (type-check, lint, format check, coverage tests,
+  build) plus Playwright e2e on every push and PR.
+- `deploy.yml` publishes the Worker (recommended); `deploy-pages.yml` publishes
+  to Pages. Both are manual (`workflow_dispatch`) and need `CLOUDFLARE_API_TOKEN`
+  - `CLOUDFLARE_ACCOUNT_ID` secrets.
+
+See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the design rationale and
+[`CHANGELOG.md`](./CHANGELOG.md) for release notes.

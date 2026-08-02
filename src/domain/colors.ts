@@ -31,7 +31,11 @@ export function colorForIndex(index: number): PlayerColor {
   return PLAYER_COLORS[index % PLAYER_COLORS.length]
 }
 
-/** Pick black or white text for legibility on a given background hex. */
+/**
+ * Pick black or white text for legibility on a given background hex — whichever
+ * yields the higher WCAG contrast ratio. Most of the vivid player palette needs
+ * dark text to clear AA for small labels (e.g. avatar initials).
+ */
 export function readableTextColor(hex: string): '#000000' | '#ffffff' {
   const normalized = hex.replace('#', '')
   const r = parseInt(normalized.slice(0, 2), 16) / 255
@@ -41,7 +45,9 @@ export function readableTextColor(hex: string): '#000000' | '#ffffff' {
     c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4)
   const luminance =
     0.2126 * toLinear(r) + 0.7152 * toLinear(g) + 0.0722 * toLinear(b)
-  return luminance > 0.4 ? '#000000' : '#ffffff'
+  const contrastWithBlack = (luminance + 0.05) / 0.05
+  const contrastWithWhite = 1.05 / (luminance + 0.05)
+  return contrastWithBlack >= contrastWithWhite ? '#000000' : '#ffffff'
 }
 
 /** Up to two initials from a display name. */

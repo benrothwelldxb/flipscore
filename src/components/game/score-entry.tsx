@@ -1,12 +1,14 @@
 import { useState, type FormEvent } from 'react'
+import { Ban } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import type { RoundFlags } from '@/domain/types'
 import { validateScoreInput } from '@/domain/validation'
 import { vibrate } from '@/lib/haptics'
 
 interface ScoreEntryProps {
-  onSubmit: (value: number) => void
+  onSubmit: (value: number, flags?: RoundFlags) => void
   submitLabel?: string
   autoFocus?: boolean
 }
@@ -28,6 +30,14 @@ export function ScoreEntry({
     setRaw(String(current() + amount))
     setError(null)
     vibrate(5)
+  }
+
+  /** A bust scores 0 — record it in one tap and flag it for stats. */
+  function handleBust() {
+    vibrate(12)
+    onSubmit(0, { bust: true })
+    setRaw('')
+    setError(null)
   }
 
   function handleSubmit(event: FormEvent) {
@@ -82,7 +92,7 @@ export function ScoreEntry({
           </Button>
         ))}
       </div>
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-3 gap-2">
         <Button
           type="button"
           variant="outline"
@@ -100,6 +110,16 @@ export function ScoreEntry({
           }}
         >
           Clear
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          className="text-destructive"
+          onClick={handleBust}
+          aria-label="Bust — score 0"
+        >
+          <Ban className="size-4" />
+          Bust
         </Button>
       </div>
       <Button type="submit" size="lg" className="h-14 text-base">

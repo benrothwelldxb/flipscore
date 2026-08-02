@@ -1,4 +1,5 @@
-import { Link, useNavigate } from 'react-router'
+import { useEffect } from 'react'
+import { Link, useNavigate, useSearchParams } from 'react-router'
 import { motion } from 'framer-motion'
 import { Archive, ChartColumn, Plus, Spade, Wifi } from 'lucide-react'
 
@@ -16,13 +17,23 @@ export function HomePage() {
   const navigate = useNavigate()
   const hydrated = useHasHydrated()
   const games = useActiveGames()
-
-  if (!hydrated) return <LoadingState />
+  const [params, setParams] = useSearchParams()
 
   function newGame() {
     const id = useGameStore.getState().createGame('host')
     navigate(`/game/${id}`)
   }
+
+  // The "New game" install shortcut lands on /?new=1 — start a game once.
+  useEffect(() => {
+    if (hydrated && params.get('new') === '1') {
+      setParams({}, { replace: true })
+      newGame()
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hydrated, params])
+
+  if (!hydrated) return <LoadingState />
 
   const sorted = [...games].sort((a, b) => b.updatedAt - a.updatedAt)
 

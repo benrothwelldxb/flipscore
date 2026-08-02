@@ -164,6 +164,10 @@ export function SettingsDialog() {
               />
             </div>
           </div>
+
+          <p className="text-muted-foreground pt-1 text-center text-xs">
+            FlipScorer v{__APP_VERSION__}
+          </p>
         </div>
       </DialogContent>
     </Dialog>

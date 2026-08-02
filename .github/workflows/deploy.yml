@@ -1,13 +1,17 @@
-name: Deploy
+name: Deploy (Cloudflare Worker)
 
-# Manual trigger. Add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID as
-# repository secrets, then run this workflow to publish to Cloudflare Pages.
+# Recommended deploy: the Worker serves the built SPA as static assets AND hosts
+# the Connected-mode signaling relay (the SignalRoom Durable Object). This is
+# what wrangler.toml describes.
+#
+# Add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID as repository secrets, then
+# run this workflow (Actions → Deploy (Cloudflare Worker) → Run workflow).
 on:
   workflow_dispatch:
 
 jobs:
   deploy:
-    name: Cloudflare Pages
+    name: Deploy Worker + assets
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -17,9 +21,9 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
-      - name: Publish to Cloudflare Pages
+      - name: Publish to Cloudflare
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy dist --project-name=flipscore
+          command: deploy

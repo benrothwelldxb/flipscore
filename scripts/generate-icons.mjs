@@ -61,6 +61,101 @@ async function maskableIcon(src, size, out) {
   console.log('  ✓', out)
 }
 
+async function roundedIconBuffer(src, size) {
+  const base = await sharp(src).resize(size, size, { fit: 'cover' }).toBuffer()
+  return sharp(base)
+    .composite([{ input: roundedMask(size), blend: 'dest-in' }])
+    .png()
+    .toBuffer()
+}
+
+/** A branded navy panel with a subtle vignette, used for OG + splash art. */
+function backdrop(width, height) {
+  return Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">
+      <defs>
+        <radialGradient id="g" cx="50%" cy="38%" r="75%">
+          <stop offset="0%" stop-color="#2a1e6e"/>
+          <stop offset="60%" stop-color="#140f45"/>
+          <stop offset="100%" stop-color="#0d0b3d"/>
+        </radialGradient>
+      </defs>
+      <rect width="${width}" height="${height}" fill="url(#g)"/>
+    </svg>`,
+  )
+}
+
+/** The Open Graph / social sharing card (1200×630): icon + wordmark + tagline. */
+async function socialImage(icon) {
+  const W = 1200
+  const H = 630
+  const badge = await roundedIconBuffer(icon, 150)
+  const wordmark = await sharp(WORDMARK_SRC)
+    .trim({ threshold: 12 })
+    .resize({ width: 620, withoutEnlargement: true })
+    .png()
+    .toBuffer()
+  const wm = await sharp(wordmark).metadata()
+  const tagline = Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}">
+      <text x="50%" y="470" text-anchor="middle" fill="#c9c3f0"
+        font-family="Segoe UI, Helvetica, Arial, sans-serif" font-size="34"
+        font-weight="500">Keep score for game night — the Flip 7 way.</text>
+    </svg>`,
+  )
+  await sharp(backdrop(W, H))
+    .composite([
+      { input: badge, top: 96, left: Math.round((W - 150) / 2) },
+      {
+        input: wordmark,
+        top: 280,
+        left: Math.round((W - (wm.width ?? 620)) / 2),
+      },
+      { input: tagline, top: 0, left: 0 },
+    ])
+    .png(PNG_OPTS)
+    .toFile(resolve(publicDir, 'og-image.png'))
+  console.log('  ✓ og-image.png')
+}
+
+// Portrait launch images for current iPhones (device pixels). Android's splash
+// is manifest-driven (background_color + icon), so it needs no image here.
+const APPLE_SPLASH = [
+  { w: 1290, h: 2796 },
+  { w: 1179, h: 2556 },
+  { w: 1284, h: 2778 },
+  { w: 1170, h: 2532 },
+  { w: 828, h: 1792 },
+  { w: 750, h: 1334 },
+]
+
+async function splashImage(icon, width, height) {
+  const iconSize = Math.round(Math.min(width, height) * 0.34)
+  const badge = await roundedIconBuffer(icon, iconSize)
+  const wordmark = await sharp(WORDMARK_SRC)
+    .trim({ threshold: 12 })
+    .resize({ width: Math.round(width * 0.6), withoutEnlargement: true })
+    .png()
+    .toBuffer()
+  const wm = await sharp(wordmark).metadata()
+  await sharp(backdrop(width, height))
+    .composite([
+      {
+        input: badge,
+        top: Math.round(height / 2 - iconSize - 24),
+        left: Math.round((width - iconSize) / 2),
+      },
+      {
+        input: wordmark,
+        top: Math.round(height / 2 + 24),
+        left: Math.round((width - (wm.width ?? width * 0.6)) / 2),
+      },
+    ])
+    .png(PNG_OPTS)
+    .toFile(resolve(publicDir, `splash-${width}x${height}.png`))
+  console.log(`  ✓ splash-${width}x${height}.png`)
+}
+
 async function main() {
   await mkdir(publicDir, { recursive: true })
   await mkdir(resolve(publicDir, 'brand'), { recursive: true })
@@ -83,6 +178,10 @@ async function main() {
     .png(PNG_OPTS)
     .toFile(resolve(publicDir, 'brand/wordmark.png'))
   console.log('  ✓ brand/wordmark.png')
+
+  // Social sharing + splash screens.
+  await socialImage(icon)
+  for (const { w, h } of APPLE_SPLASH) await splashImage(icon, w, h)
 
   console.log('Done.')
 }

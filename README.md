@@ -97,13 +97,18 @@ products work; pick one.
 - Build command: `npm run build`
 - Deploy command: `npx wrangler deploy`
 - `wrangler.toml` serves `./dist` as assets with
-  `not_found_handling = "single-page-application"` for client-side routing.
+  `not_found_handling = "single-page-application"` — this handles client-side
+  routing, so **no `_redirects` file is used** (a `/* /index.html 200` rule is
+  rejected as a loop by the Workers assets deploy).
 - The Worker name in `wrangler.toml` must match your Worker (`flipscorer`).
 
 **Pages (alternative)**
 
 - Build command: `npm run build`, output directory: `dist`, production branch
-  `main`. Pages also honours `public/_redirects` and `public/_headers`.
+  `main`.
+- Pages has no `not_found_handling`, so for SPA routing add a
+  `public/_redirects` containing `/* /index.html 200`. `public/_headers` is
+  honoured as-is.
 - CLI: `npx wrangler pages deploy dist --project-name=<your-project>`.
 
 The `Deploy` workflow (`.github/workflows/deploy.yml`) can publish on manual

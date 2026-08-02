@@ -6,7 +6,10 @@ import {
   createPlayer,
   finishGame,
   recordScore,
+  removeRound,
   reorderPlayers,
+  replayRound,
+  setRoundScore,
   startGame,
 } from './game'
 
@@ -100,5 +103,55 @@ describe('reorderPlayers', () => {
   it('ignores an id set that does not match', () => {
     const g = createGame('host', 0)
     expect(reorderPlayers(g, ['nope']).players).toEqual(g.players)
+  })
+})
+
+describe('round editing', () => {
+  it('setRoundScore edits a past round and re-derives the winner', () => {
+    let g = startGame(createGame('host', 0))
+    g = { ...g, settings: { ...g.settings, targetScore: 50 } }
+    const [p1, p2] = g.players
+    g = recordScore(g, p1.id, 20)
+    g = recordScore(g, p2.id, 10)
+    expect(g.status).toBe('playing')
+
+    // Correct p1's round-1 score up to a winning total.
+    g = setRoundScore(g, 0, p1.id, 60)
+    expect(g.rounds[0].scores[p1.id]).toBe(60)
+    expect(g.status).toBe('finished')
+    expect(g.winnerId).toBe(p1.id)
+  })
+
+  it('setRoundScore can reopen a finished game when lowered below target', () => {
+    let g = startGame(createGame('host', 0))
+    g = { ...g, settings: { ...g.settings, targetScore: 50 } }
+    const [p1] = g.players
+    g = recordScore(g, p1.id, 60)
+    expect(g.status).toBe('finished')
+    g = setRoundScore(g, 0, p1.id, 10)
+    expect(g.status).toBe('playing')
+    expect(g.winnerId).toBeNull()
+  })
+
+  it('removeRound deletes and re-indexes, keeping at least one round', () => {
+    let g = advanceRound(advanceRound(startGame(createGame('host', 0)))) // 3 rounds
+    expect(g.rounds).toHaveLength(3)
+    g = removeRound(g, 1)
+    expect(g.rounds).toHaveLength(2)
+    expect(g.rounds.map((r) => r.index)).toEqual([0, 1])
+
+    const oneRound = startGame(createGame('host', 0))
+    expect(removeRound(oneRound, 0).rounds).toHaveLength(1) // guarded
+  })
+
+  it('replayRound clears scores and reopens the round', () => {
+    let g = startGame(createGame('host', 0))
+    const [p1] = g.players
+    g = recordScore(g, p1.id, 10)
+    g = advanceRound(g)
+    g = replayRound(g, 0)
+    expect(g.rounds[0].scores).toEqual({})
+    expect(g.currentRoundIndex).toBe(0)
+    expect(g.status).toBe('playing')
   })
 })

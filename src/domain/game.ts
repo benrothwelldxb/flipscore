@@ -94,3 +94,51 @@ export function reorderPlayers(game: Game, orderedIds: string[]): Game {
   if (reordered.length !== game.players.length) return game
   return { ...game, players: reordered }
 }
+
+/** Re-derive status + winner from current totals (used after edits). */
+export function recompute(game: Game): Game {
+  if (game.status === 'setup') return game
+  if (isGameOver(game)) {
+    return { ...game, status: 'finished', winnerId: determineWinner(game) }
+  }
+  return { ...game, status: 'playing', winnerId: null }
+}
+
+/** Edit a single score in any (possibly past) round, then re-derive status. */
+export function setRoundScore(
+  game: Game,
+  roundIndex: number,
+  playerId: string,
+  value: number,
+): Game {
+  const rounds = game.rounds.map((round) =>
+    round.index === roundIndex
+      ? { ...round, scores: { ...round.scores, [playerId]: value } }
+      : round,
+  )
+  return recompute({ ...game, rounds })
+}
+
+/** Delete a round, re-index the rest, and re-derive status. Keeps ≥1 round. */
+export function removeRound(game: Game, roundIndex: number): Game {
+  if (game.rounds.length <= 1) return game
+  const rounds = game.rounds
+    .filter((round) => round.index !== roundIndex)
+    .map((round, index) => ({ ...round, index }))
+  const currentRoundIndex = Math.min(game.currentRoundIndex, rounds.length - 1)
+  return recompute({ ...game, rounds, currentRoundIndex })
+}
+
+/** Clear a round's scores and reopen it for re-entry. */
+export function replayRound(game: Game, roundIndex: number): Game {
+  const rounds = game.rounds.map((round) =>
+    round.index === roundIndex ? { ...round, scores: {} } : round,
+  )
+  return {
+    ...game,
+    rounds,
+    currentRoundIndex: roundIndex,
+    status: 'playing',
+    winnerId: null,
+  }
+}

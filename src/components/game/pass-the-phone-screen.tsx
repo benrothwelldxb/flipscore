@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
-import { ArrowRight, Flag, PartyPopper } from 'lucide-react'
+import { ArrowRight, Flag, ListOrdered, PartyPopper, Undo2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -9,10 +9,13 @@ import {
   readableTextColor,
 } from '@/domain/colors'
 import type { Game, Player } from '@/domain/types'
+import { useToast } from '@/hooks/use-toast'
 import { vibrate } from '@/lib/haptics'
-import { useGameStore } from '@/stores/game-store'
+import { playSound } from '@/lib/sound'
+import { useCanUndo, useGameStore } from '@/stores/game-store'
 
 import { Leaderboard } from './leaderboard'
+import { RoundHistory } from './round-history'
 import { ScoreEntryPanel } from './score-entry-panel'
 
 type Phase = 'scoring' | 'handoff' | 'roundEnd'
@@ -42,6 +45,8 @@ function BigAvatar({ player, size = 96 }: { player: Player; size?: number }) {
 export function PassThePhoneScreen({ game }: PassScreenProps) {
   const [phase, setPhase] = useState<Phase>('scoring')
   const store = useGameStore.getState
+  const canUndo = useCanUndo(game.id)
+  const { toast } = useToast()
 
   const round = game.rounds[game.currentRoundIndex]
   const roundNumber = game.currentRoundIndex + 1
@@ -54,6 +59,7 @@ export function PassThePhoneScreen({ game }: PassScreenProps) {
     if (!currentPlayer) return
     store().submitScore(game.id, currentPlayer.id, value)
     vibrate([10, 30, 10])
+    playSound('save')
     // If that entry finished the game, the parent swaps to the results screen.
     if (scoredCount + 1 >= game.players.length) {
       setPhase('roundEnd')
@@ -67,9 +73,21 @@ export function PassThePhoneScreen({ game }: PassScreenProps) {
     setPhase('scoring')
   }
 
-  // Defensive: if we somehow land on a complete round while "scoring", show end.
-  const effectivePhase: Phase =
-    phase === 'scoring' && roundComplete ? 'roundEnd' : phase
+  function handleUndo() {
+    store().undo(game.id)
+    vibrate(10)
+    playSound('undo')
+    setPhase('scoring')
+    toast('Undone')
+  }
+
+  // Derive the shown phase from game state so external edits (replay / delete /
+  // undo from the Rounds dialog) can never leave us on a stale screen.
+  const effectivePhase: Phase = roundComplete
+    ? 'roundEnd'
+    : phase === 'roundEnd'
+      ? 'scoring'
+      : phase
 
   const handoffRef = useRef<HTMLButtonElement>(null)
 
@@ -103,7 +121,20 @@ export function PassThePhoneScreen({ game }: PassScreenProps) {
             transition={{ type: 'spring', bounce: 0.2, duration: 0.4 }}
             className="flex flex-1 flex-col gap-6"
           >
-            <div className="flex flex-col items-center gap-3 pt-4 text-center">
+            <div className="flex h-9 items-center justify-end">
+              {canUndo && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleUndo}
+                  aria-label="Undo last score"
+                >
+                  <Undo2 className="size-4" />
+                  Undo
+                </Button>
+              )}
+            </div>
+            <div className="flex flex-col items-center gap-3 text-center">
               <BigAvatar player={currentPlayer} />
               <div>
                 <h1 className="text-2xl font-bold">{currentPlayer.name}</h1>
@@ -127,6 +158,7 @@ export function PassThePhoneScreen({ game }: PassScreenProps) {
             type="button"
             onClick={() => {
               vibrate(8)
+              playSound('tap')
               setPhase('scoring')
             }}
             initial={{ opacity: 0, scale: 0.96 }}
@@ -182,14 +214,31 @@ export function PassThePhoneScreen({ game }: PassScreenProps) {
               >
                 Start round {roundNumber + 1}
               </Button>
-              <Button
-                variant="outline"
-                className="w-full"
-                onClick={() => store().endGame(game.id)}
-              >
-                <Flag className="size-4" />
-                Finish game
-              </Button>
+              <div className="grid grid-cols-2 gap-2">
+                <RoundHistory
+                  game={game}
+                  trigger={
+                    <Button variant="outline" className="w-full">
+                      <ListOrdered className="size-4" />
+                      Rounds
+                    </Button>
+                  }
+                />
+                <Button
+                  variant="outline"
+                  className="w-full"
+                  onClick={() => store().endGame(game.id)}
+                >
+                  <Flag className="size-4" />
+                  Finish
+                </Button>
+              </div>
+              {canUndo && (
+                <Button variant="ghost" className="w-full" onClick={handleUndo}>
+                  <Undo2 className="size-4" />
+                  Undo last score
+                </Button>
+              )}
             </div>
           </motion.div>
         )}

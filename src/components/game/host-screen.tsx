@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ChevronRight, Flag, Pencil } from 'lucide-react'
+import { ChevronRight, Flag, ListOrdered, Pencil, Undo2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import {
@@ -14,10 +14,14 @@ import {
 } from '@/components/ui/dialog'
 import { isRoundComplete } from '@/domain/scoring'
 import type { Game } from '@/domain/types'
-import { useGameStore } from '@/stores/game-store'
+import { useToast } from '@/hooks/use-toast'
+import { vibrate } from '@/lib/haptics'
+import { playSound } from '@/lib/sound'
+import { useCanUndo, useGameStore } from '@/stores/game-store'
 
 import { Leaderboard } from './leaderboard'
 import { PlayerAvatar } from './player-avatar'
+import { RoundHistory } from './round-history'
 import { ScoreEntryPanel } from './score-entry-panel'
 
 interface HostScreenProps {
@@ -27,6 +31,8 @@ interface HostScreenProps {
 export function HostScreen({ game }: HostScreenProps) {
   const [entryPlayerId, setEntryPlayerId] = useState<string | null>(null)
   const store = useGameStore.getState
+  const canUndo = useCanUndo(game.id)
+  const { toast } = useToast()
 
   const round = game.rounds[game.currentRoundIndex]
   const roundNumber = game.currentRoundIndex + 1
@@ -36,7 +42,15 @@ export function HostScreen({ game }: HostScreenProps) {
   function handleSubmit(value: number) {
     if (!entryPlayerId) return
     store().submitScore(game.id, entryPlayerId, value)
+    playSound('save')
     setEntryPlayerId(null)
+  }
+
+  function handleUndo() {
+    store().undo(game.id)
+    vibrate(10)
+    playSound('undo')
+    toast('Undone')
   }
 
   return (
@@ -48,35 +62,54 @@ export function HostScreen({ game }: HostScreenProps) {
             First to {game.settings.targetScore} wins
           </p>
         </div>
-        <Dialog>
-          <DialogTrigger asChild>
-            <Button variant="outline">
-              <Flag className="size-4" />
-              End
-            </Button>
-          </DialogTrigger>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>End the game now?</DialogTitle>
-              <DialogDescription>
-                We&apos;ll tally the current scores and crown the leader.
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <DialogClose asChild>
-                <Button variant="outline">Keep playing</Button>
-              </DialogClose>
-              <DialogClose asChild>
-                <Button
-                  variant="destructive"
-                  onClick={() => store().endGame(game.id)}
-                >
-                  End game
-                </Button>
-              </DialogClose>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Undo last action"
+            disabled={!canUndo}
+            onClick={handleUndo}
+          >
+            <Undo2 className="size-5" />
+          </Button>
+          <RoundHistory
+            game={game}
+            trigger={
+              <Button variant="ghost" size="icon" aria-label="View rounds">
+                <ListOrdered className="size-5" />
+              </Button>
+            }
+          />
+          <Dialog>
+            <DialogTrigger asChild>
+              <Button variant="outline" aria-label="End game">
+                <Flag className="size-4" />
+                End
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>End the game now?</DialogTitle>
+                <DialogDescription>
+                  We&apos;ll tally the current scores and crown the leader.
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter>
+                <DialogClose asChild>
+                  <Button variant="outline">Keep playing</Button>
+                </DialogClose>
+                <DialogClose asChild>
+                  <Button
+                    variant="destructive"
+                    onClick={() => store().endGame(game.id)}
+                  >
+                    End game
+                  </Button>
+                </DialogClose>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+        </div>
       </header>
 
       <section className="space-y-2">

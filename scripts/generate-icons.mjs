@@ -13,6 +13,9 @@ const NAVY = '#0d0b3d'
 const ICON_SRC = resolve(brandDir, 'app-icon.png')
 const WORDMARK_SRC = resolve(brandDir, 'wordmark.png')
 
+// Quantised PNGs keep the brand images small for fast mobile loads.
+const PNG_OPTS = { palette: true, quality: 90, compressionLevel: 9 }
+
 /** The icon badge with its outer black border trimmed away. */
 function trimmedIcon() {
   return sharp(ICON_SRC).trim({ threshold: 20 }).toBuffer()
@@ -30,7 +33,7 @@ async function roundedIcon(src, size, out) {
   const base = await sharp(src).resize(size, size, { fit: 'cover' }).toBuffer()
   await sharp(base)
     .composite([{ input: roundedMask(size), blend: 'dest-in' }])
-    .png()
+    .png(PNG_OPTS)
     .toFile(resolve(publicDir, out))
   console.log('  ✓', out)
 }
@@ -39,7 +42,7 @@ async function squareIcon(src, size, out) {
   await sharp(src)
     .resize(size, size, { fit: 'cover' })
     .flatten({ background: NAVY })
-    .png()
+    .png(PNG_OPTS)
     .toFile(resolve(publicDir, out))
   console.log('  ✓', out)
 }
@@ -53,7 +56,7 @@ async function maskableIcon(src, size, out) {
     create: { width: size, height: size, channels: 4, background: NAVY },
   })
     .composite([{ input: content, gravity: 'center' }])
-    .png()
+    .png(PNG_OPTS)
     .toFile(resolve(publicDir, out))
   console.log('  ✓', out)
 }
@@ -76,8 +79,8 @@ async function main() {
   await roundedIcon(icon, 256, 'brand/icon.png')
   await sharp(WORDMARK_SRC)
     .trim({ threshold: 12 })
-    .resize({ width: 1000, withoutEnlargement: true })
-    .png()
+    .resize({ width: 640, withoutEnlargement: true })
+    .png(PNG_OPTS)
     .toFile(resolve(publicDir, 'brand/wordmark.png'))
   console.log('  ✓ brand/wordmark.png')
 

@@ -151,6 +151,18 @@
     overscroll-behavior-y: none;
   }
 
+  h1,
+  h2,
+  h3,
+  h4 {
+    text-wrap: balance;
+    letter-spacing: -0.01em;
+  }
+
+  ::selection {
+    background: color-mix(in oklch, var(--primary) 25%, transparent);
+  }
+
   #root {
     min-height: 100svh;
     display: flex;

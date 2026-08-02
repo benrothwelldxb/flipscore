@@ -5,8 +5,8 @@ interface WordmarkProps {
   alt?: string
 }
 
-/** The horizontal FlipScorer wordmark lockup (has a light background — place
-    it on a light surface). */
+/** The horizontal FlipScorer wordmark lockup (transparent background with a
+    dark outline, so it reads on both light and dark surfaces). */
 export function Wordmark({ className, alt = 'FlipScorer' }: WordmarkProps) {
   return (
     <img

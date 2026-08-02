@@ -6,6 +6,7 @@ function reset() {
   useGameStore.setState({
     games: [],
     activeGameId: null,
+    history: {},
     hasHydrated: false,
   })
 }
@@ -94,5 +95,64 @@ describe('game store', () => {
     store().removePlayer(id, store().games[0].players[0].id) // still 2 (min)
     store().startGame(id)
     expect(store().games[0].status).toBe('playing') // 2 is allowed
+  })
+
+  it('undoes the most recent score', () => {
+    const id = store().createGame('host')
+    store().startGame(id)
+    const [p1] = store().games[0].players
+    store().submitScore(id, p1.id, 12)
+    expect(store().games[0].rounds[0].scores[p1.id]).toBe(12)
+
+    store().undo(id)
+    expect(store().games[0].rounds[0].scores[p1.id]).toBeUndefined()
+    // Nothing left to undo → no-op.
+    store().undo(id)
+    expect(store().games[0].rounds[0].scores).toEqual({})
+  })
+
+  it('edits a past round score via the store', () => {
+    const id = store().createGame('host')
+    store().startGame(id)
+    const [p1] = store().games[0].players
+    store().submitScore(id, p1.id, 5)
+    store().editScore(id, 0, p1.id, 40)
+    expect(store().games[0].rounds[0].scores[p1.id]).toBe(40)
+  })
+
+  it('deletes and replays rounds via the store', () => {
+    const id = store().createGame('host')
+    store().startGame(id)
+    store().nextRound(id)
+    store().nextRound(id)
+    expect(store().games[0].rounds).toHaveLength(3)
+    store().deleteRound(id, 1)
+    expect(store().games[0].rounds).toHaveLength(2)
+
+    const [p1] = store().games[0].players
+    store().submitScore(id, p1.id, 9)
+    store().replayRound(id, store().games[0].currentRoundIndex)
+    expect(
+      store().games[0].rounds[store().games[0].currentRoundIndex].scores,
+    ).toEqual({})
+  })
+
+  it('restores a specific snapshot via replaceGame (targeted undo)', () => {
+    const id = store().createGame('host')
+    store().startGame(id)
+    store().nextRound(id)
+    const before = store().games[0] // 2 rounds
+    store().deleteRound(id, 0)
+    expect(store().games[0].rounds).toHaveLength(1)
+    store().replaceGame(before)
+    expect(store().games[0].rounds).toHaveLength(2)
+  })
+
+  it('clears undo history when a game is deleted', () => {
+    const id = store().createGame('host')
+    store().startGame(id)
+    store().submitScore(id, store().games[0].players[0].id, 3)
+    store().deleteGame(id)
+    expect(useGameStore.getState().history[id]).toBeUndefined()
   })
 })

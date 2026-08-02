@@ -1,5 +1,8 @@
-/** Fire a short vibration where supported; a no-op everywhere else. */
+import { usePrefsStore } from '@/stores/prefs-store'
+
+/** Fire a short vibration where supported and enabled in preferences. */
 export function vibrate(pattern: number | number[] = 10): void {
+  if (!usePrefsStore.getState().hapticsEnabled) return
   if (typeof navigator === 'undefined') return
   if (typeof navigator.vibrate !== 'function') return
   try {

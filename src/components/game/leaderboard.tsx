@@ -1,6 +1,7 @@
 import { motion } from 'framer-motion'
 import { Crown, Target } from 'lucide-react'
 
+import { CountUp } from '@/components/common/count-up'
 import { computeLeaderboard } from '@/domain/scoring'
 import type { Game } from '@/domain/types'
 import { cn } from '@/lib/utils'
@@ -12,17 +13,29 @@ interface LeaderboardProps {
   className?: string
 }
 
-/** Live standings with animated reordering and current-leader highlighting. */
+function rankClass(rank: number): string {
+  if (rank === 1) return 'bg-amber-400 text-amber-950'
+  if (rank === 2) return 'bg-slate-300 text-slate-800'
+  if (rank === 3) return 'bg-orange-400 text-orange-950'
+  return 'bg-muted text-muted-foreground'
+}
+
+/** Live standings with animated reordering, medals, and count-up totals. */
 export function Leaderboard({ game, className }: LeaderboardProps) {
   const entries = computeLeaderboard(game)
 
   return (
     <ol className={cn('flex flex-col gap-2', className)}>
-      {entries.map((entry) => (
+      {entries.map((entry, index) => (
         <motion.li
           key={entry.player.id}
           layout
-          transition={{ type: 'spring', bounce: 0.2, duration: 0.5 }}
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{
+            layout: { type: 'spring', bounce: 0.2, duration: 0.5 },
+            delay: index * 0.04,
+          }}
           className={cn(
             'flex items-center gap-3 rounded-xl border p-3',
             entry.isLeader
@@ -30,7 +43,13 @@ export function Leaderboard({ game, className }: LeaderboardProps) {
               : 'bg-card border-border',
           )}
         >
-          <span className="text-muted-foreground w-6 shrink-0 text-center text-sm font-semibold tabular-nums">
+          <span
+            className={cn(
+              'flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold tabular-nums',
+              rankClass(entry.rank),
+            )}
+            aria-hidden
+          >
             {entry.rank}
           </span>
           <PlayerAvatar name={entry.player.name} color={entry.player.color} />
@@ -53,7 +72,8 @@ export function Leaderboard({ game, className }: LeaderboardProps) {
             </>
           )}
           <span className="w-12 shrink-0 text-right text-lg font-bold tabular-nums">
-            {entry.total}
+            <CountUp value={entry.total} />
+            <span className="sr-only">{entry.total} points</span>
           </span>
         </motion.li>
       ))}

@@ -31,9 +31,7 @@ export function HomePage() {
         className="flex flex-col items-center gap-3 pt-2 text-center"
       >
         <h1 className="sr-only">FlipScorer</h1>
-        <div className="w-full max-w-[17rem] rounded-2xl bg-white p-3 shadow-sm ring-1 ring-black/5">
-          <Wordmark alt="" />
-        </div>
+        <Wordmark alt="" className="w-full max-w-[18rem] drop-shadow-sm" />
         <p className="text-muted-foreground text-sm">
           Keep score for game night.
         </p>

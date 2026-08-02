@@ -1,6 +1,7 @@
 import { Link } from 'react-router'
 
-import { BrandIcon } from '@/components/brand/brand-icon'
+import { Wordmark } from '@/components/brand/wordmark'
+import { SettingsDialog } from '@/components/settings-dialog'
 import { ThemeToggle } from '@/components/theme/theme-toggle'
 
 export function AppHeader() {
@@ -9,13 +10,15 @@ export function AppHeader() {
       <div className="mx-auto flex h-14 w-full max-w-md items-center justify-between px-4">
         <Link
           to="/"
-          className="focus-visible:ring-ring/50 flex items-center gap-2 rounded-md font-semibold outline-none focus-visible:ring-[3px]"
+          className="focus-visible:ring-ring/50 -m-1 flex items-center rounded-md p-1 outline-none focus-visible:ring-[3px]"
           aria-label="FlipScorer home"
         >
-          <BrandIcon className="size-7 rounded-lg" decorative />
-          <span className="text-base tracking-tight">FlipScorer</span>
+          <Wordmark className="h-7 w-auto" alt="" />
         </Link>
-        <ThemeToggle />
+        <div className="flex items-center gap-0.5">
+          <ThemeToggle />
+          <SettingsDialog />
+        </div>
       </div>
     </header>
   )

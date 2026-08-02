@@ -21,8 +21,13 @@ Progressive Web App.
   exhaustively unit-tested.
 - **Persistence** — games auto-save to localStorage; resume unfinished games or
   delete them from the launcher.
+- **Undo & round editing** — undo the last action, and edit, delete, or replay
+  any past round.
+- **Delightful & tactile** — animated leaderboards with medals and count-up
+  totals, a winner confetti burst + fanfare, and optional sound / haptics you
+  control in Settings (reduced-motion respected throughout).
 - **Installable PWA** — works offline, no account needed.
-- **Accessible & fast** — Lighthouse 96 / 100 / 100 / 100
+- **Accessible & fast** — Lighthouse 94 / 100 / 100 / 100
   (performance / a11y / best-practices / SEO).
 
 ## Tech stack

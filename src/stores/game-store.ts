@@ -8,7 +8,10 @@ import {
   createRound,
   finishGame,
   recordScore,
+  removeRound,
   reorderPlayers as reorderPlayersTransform,
+  replayRound as replayRoundTransform,
+  setRoundScore,
   startGame as startGameTransform,
 } from '@/domain/game'
 import { createId } from '@/lib/id'
@@ -24,9 +27,13 @@ function touch(game: Game): Game {
   return { ...game, updatedAt: Date.now() }
 }
 
+const MAX_HISTORY = 30
+
 interface GameState {
   games: Game[]
   activeGameId: string | null
+  /** Per-game undo stacks (in-memory, not persisted). */
+  history: Record<string, Game[]>
   /** True once the persisted state has been read back from storage. */
   hasHydrated: boolean
 
@@ -49,6 +56,19 @@ interface GameState {
   submitScore: (id: string, playerId: string, value: number) => void
   nextRound: (id: string) => void
   endGame: (id: string) => void
+  /** Edit a score in any round. */
+  editScore: (
+    id: string,
+    roundIndex: number,
+    playerId: string,
+    value: number,
+  ) => void
+  deleteRound: (id: string, roundIndex: number) => void
+  replayRound: (id: string, roundIndex: number) => void
+  /** Revert the most recent tracked action for a game. */
+  undo: (id: string) => void
+  /** Replace a game with a specific snapshot (targeted undo). */
+  replaceGame: (game: Game) => void
   /** Start a fresh game with the same roster and settings. */
   rematch: (id: string) => string | null
 
@@ -60,11 +80,26 @@ function mapGame(games: Game[], id: string, fn: (game: Game) => Game): Game[] {
   return games.map((game) => (game.id === id ? touch(fn(game)) : game))
 }
 
+/** Snapshot the current game before a tracked mutation so it can be undone. */
+function pushHistory(
+  history: Record<string, Game[]>,
+  games: Game[],
+  id: string,
+): Record<string, Game[]> {
+  const current = games.find((g) => g.id === id)
+  if (!current) return history
+  return {
+    ...history,
+    [id]: [...(history[id] ?? []), current].slice(-MAX_HISTORY),
+  }
+}
+
 export const useGameStore = create<GameState>()(
   persist(
     (set, get) => ({
       games: [],
       activeGameId: null,
+      history: {},
       hasHydrated: false,
 
       createGame: (mode) => {
@@ -74,10 +109,15 @@ export const useGameStore = create<GameState>()(
       },
 
       deleteGame: (id) =>
-        set((s) => ({
-          games: s.games.filter((g) => g.id !== id),
-          activeGameId: s.activeGameId === id ? null : s.activeGameId,
-        })),
+        set((s) => {
+          const history = { ...s.history }
+          delete history[id]
+          return {
+            games: s.games.filter((g) => g.id !== id),
+            activeGameId: s.activeGameId === id ? null : s.activeGameId,
+            history,
+          }
+        }),
 
       setActiveGame: (id) => set({ activeGameId: id }),
 
@@ -141,6 +181,7 @@ export const useGameStore = create<GameState>()(
 
       submitScore: (id, playerId, value) =>
         set((s) => ({
+          history: pushHistory(s.history, s.games, id),
           games: mapGame(s.games, id, (g) =>
             g.status === 'playing' ? recordScore(g, playerId, value) : g,
           ),
@@ -148,6 +189,7 @@ export const useGameStore = create<GameState>()(
 
       nextRound: (id) =>
         set((s) => ({
+          history: pushHistory(s.history, s.games, id),
           games: mapGame(s.games, id, (g) =>
             g.status === 'playing' ? advanceRound(g) : g,
           ),
@@ -155,7 +197,46 @@ export const useGameStore = create<GameState>()(
 
       endGame: (id) =>
         set((s) => ({
+          history: pushHistory(s.history, s.games, id),
           games: mapGame(s.games, id, (g) => finishGame(g)),
+        })),
+
+      editScore: (id, roundIndex, playerId, value) =>
+        set((s) => ({
+          history: pushHistory(s.history, s.games, id),
+          games: mapGame(s.games, id, (g) =>
+            setRoundScore(g, roundIndex, playerId, value),
+          ),
+        })),
+
+      deleteRound: (id, roundIndex) =>
+        set((s) => ({
+          history: pushHistory(s.history, s.games, id),
+          games: mapGame(s.games, id, (g) => removeRound(g, roundIndex)),
+        })),
+
+      replayRound: (id, roundIndex) =>
+        set((s) => ({
+          history: pushHistory(s.history, s.games, id),
+          games: mapGame(s.games, id, (g) =>
+            replayRoundTransform(g, roundIndex),
+          ),
+        })),
+
+      undo: (id) =>
+        set((s) => {
+          const stack = s.history[id]
+          if (!stack || stack.length === 0) return {}
+          const previous = stack[stack.length - 1]
+          return {
+            games: s.games.map((g) => (g.id === id ? previous : g)),
+            history: { ...s.history, [id]: stack.slice(0, -1) },
+          }
+        }),
+
+      replaceGame: (game) =>
+        set((s) => ({
+          games: s.games.map((g) => (g.id === game.id ? game : g)),
         })),
 
       rematch: (id) => {
@@ -199,3 +280,5 @@ export const useActiveGame = () =>
   useGameStore((s) =>
     s.activeGameId ? s.games.find((g) => g.id === s.activeGameId) : undefined,
   )
+export const useCanUndo = (id: string | null | undefined) =>
+  useGameStore((s) => (id ? (s.history[id]?.length ?? 0) > 0 : false))

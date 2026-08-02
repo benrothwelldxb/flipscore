@@ -29,8 +29,12 @@ function game(players: Player[], rounds: Round[], targetScore = 200): Game {
     status: 'playing',
     currentRoundIndex: Math.max(0, rounds.length - 1),
     winnerId: null,
+    favorite: false,
     createdAt: 0,
     updatedAt: 0,
+    finishedAt: null,
+    rev: 1,
+    deletedAt: null,
   }
 }
 

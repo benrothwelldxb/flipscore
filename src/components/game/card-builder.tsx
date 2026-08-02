@@ -13,11 +13,12 @@ import {
   toggleNumber,
   type Flip7Selection,
 } from '@/domain/flip7'
+import type { RoundFlags } from '@/domain/types'
 import { vibrate } from '@/lib/haptics'
 import { cn } from '@/lib/utils'
 
 interface CardBuilderProps {
-  onSubmit: (value: number) => void
+  onSubmit: (value: number, flags?: RoundFlags) => void
   submitLabel?: string
 }
 
@@ -221,7 +222,10 @@ export function CardBuilder({
           className="h-14 flex-1 text-base"
           onClick={() => {
             vibrate(12)
-            onSubmit(result.total)
+            onSubmit(result.total, {
+              flip7: result.isFlip7,
+              bust: result.busted,
+            })
           }}
         >
           {submitLabel}

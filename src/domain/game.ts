@@ -8,7 +8,23 @@ import {
   type GameMode,
   type Player,
   type Round,
+  type RoundFlags,
 } from './types'
+
+/** Merge or clear a player's round flags, dropping empty entries. */
+function withFlag(
+  existing: Record<string, RoundFlags> | undefined,
+  playerId: string,
+  flags: RoundFlags | undefined,
+): Record<string, RoundFlags> | undefined {
+  const next = { ...(existing ?? {}) }
+  if (flags && (flags.flip7 || flags.bust)) {
+    next[playerId] = flags
+  } else {
+    delete next[playerId]
+  }
+  return Object.keys(next).length > 0 ? next : undefined
+}
 
 export function createPlayer(order: number, name?: string): Player {
   return {
@@ -34,8 +50,12 @@ export function createGame(mode: GameMode, now: number): Game {
     status: 'setup',
     currentRoundIndex: 0,
     winnerId: null,
+    favorite: false,
     createdAt: now,
     updatedAt: now,
+    finishedAt: null,
+    rev: 1,
+    deletedAt: null,
   }
 }
 
@@ -53,10 +73,19 @@ export function startGame(game: Game): Game {
 }
 
 /** Record a player's score for the current round; finishes if target reached. */
-export function recordScore(game: Game, playerId: string, value: number): Game {
+export function recordScore(
+  game: Game,
+  playerId: string,
+  value: number,
+  flags?: RoundFlags,
+): Game {
   const rounds = game.rounds.map((round) =>
     round.index === game.currentRoundIndex
-      ? { ...round, scores: { ...round.scores, [playerId]: value } }
+      ? {
+          ...round,
+          scores: { ...round.scores, [playerId]: value },
+          flags: withFlag(round.flags, playerId, flags),
+        }
       : round,
   )
   const next: Game = { ...game, rounds }
@@ -113,7 +142,12 @@ export function setRoundScore(
 ): Game {
   const rounds = game.rounds.map((round) =>
     round.index === roundIndex
-      ? { ...round, scores: { ...round.scores, [playerId]: value } }
+      ? {
+          ...round,
+          scores: { ...round.scores, [playerId]: value },
+          // A manual edit no longer reflects any Card Builder flags.
+          flags: withFlag(round.flags, playerId, undefined),
+        }
       : round,
   )
   return recompute({ ...game, rounds })

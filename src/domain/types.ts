@@ -10,12 +10,20 @@ export interface Player {
   order: number
 }
 
+/** Optional metadata captured when a score comes from the Card Builder. */
+export interface RoundFlags {
+  flip7?: boolean
+  bust?: boolean
+}
+
 export interface Round {
   id: string
   /** 0-based round number. */
   index: number
   /** playerId → score for this round. Absent until the player has entered. */
   scores: Record<string, number>
+  /** playerId → how the score was achieved (Flip 7 / bust), when known. */
+  flags?: Record<string, RoundFlags>
 }
 
 export interface GameSettings {
@@ -34,9 +42,19 @@ export interface Game {
   /** Index into `rounds` of the round currently being played. */
   currentRoundIndex: number
   winnerId: string | null
+  favorite: boolean
   createdAt: number
   updatedAt: number
+  /** Set when the game first reaches `finished`; cleared if reopened. */
+  finishedAt: number | null
+  /** Monotonic revision, bumped on every mutation (for last-write-wins sync). */
+  rev: number
+  /** Soft-delete tombstone timestamp (kept so a sync backend can reconcile). */
+  deletedAt: number | null
 }
+
+/** Persisted schema version for the games store (see migrate in the store). */
+export const GAMES_SCHEMA_VERSION = 2
 
 export interface LeaderboardEntry {
   player: Player

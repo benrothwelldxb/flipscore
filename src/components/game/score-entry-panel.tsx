@@ -1,5 +1,6 @@
 import { Hash, LayoutGrid, type LucideIcon } from 'lucide-react'
 
+import type { RoundFlags } from '@/domain/types'
 import {
   usePrefsStore,
   useScoreEntryMode,
@@ -11,7 +12,7 @@ import { CardBuilder } from './card-builder'
 import { ScoreEntry } from './score-entry'
 
 interface ScoreEntryPanelProps {
-  onSubmit: (value: number) => void
+  onSubmit: (value: number, flags?: RoundFlags) => void
   submitLabel?: string
 }
 

@@ -116,3 +116,35 @@ test.describe('Card Builder', () => {
     ).toBeVisible()
   })
 })
+
+test.describe('Archive & Stats', () => {
+  test('finishing a game populates the archive and stats', async ({ page }) => {
+    await page.goto('/')
+    await page.getByRole('button', { name: 'New game' }).click()
+
+    // Low target so a single score finishes the game.
+    const target = page.getByLabel('Target score')
+    await target.fill('20')
+    await target.press('Tab')
+    await page.getByRole('button', { name: 'Start game' }).click()
+
+    await page.getByRole('button', { name: 'Enter score for Player 1' }).click()
+    await page.getByRole('textbox', { name: 'Score for this round' }).fill('25')
+    await page.getByRole('button', { name: 'Save score' }).click()
+
+    // Game finished → results.
+    await expect(page.getByRole('heading', { name: /wins!/i })).toBeVisible()
+
+    // Archive lists the finished game.
+    await page.goto('/archive')
+    await expect(page.getByRole('heading', { name: 'Archive' })).toBeVisible()
+    await expect(
+      page.getByRole('button', { name: /Remove favourite|Favourite/ }).first(),
+    ).toBeVisible()
+
+    // Stats shows aggregated totals.
+    await page.goto('/stats')
+    await expect(page.getByRole('heading', { name: 'Stats' })).toBeVisible()
+    await expect(page.getByText('Records')).toBeVisible()
+  })
+})

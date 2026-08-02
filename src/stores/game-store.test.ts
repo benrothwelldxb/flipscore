@@ -83,11 +83,46 @@ describe('game store', () => {
     expect(store().games[0].winnerId).toBe(p2.id)
   })
 
-  it('deletes a game and clears the active pointer', () => {
+  it('soft-deletes a game (tombstone) and clears the active pointer', () => {
     const id = store().createGame('host')
     store().deleteGame(id)
-    expect(store().games).toHaveLength(0)
+    expect(store().games[0].deletedAt).not.toBeNull()
     expect(store().activeGameId).toBeNull()
+  })
+
+  it('toggles favourite', () => {
+    const id = store().createGame('host')
+    expect(store().games[0].favorite).toBe(false)
+    store().toggleFavorite(id)
+    expect(store().games[0].favorite).toBe(true)
+  })
+
+  it('duplicates a game as a new independent record', () => {
+    const id = store().createGame('host')
+    store().renameGame(id, 'Rummy')
+    const copyId = store().duplicateGame(id)
+    expect(store().games).toHaveLength(2)
+    const copy = store().games.find((g) => g.id === copyId)
+    expect(copy?.name).toBe('Rummy (copy)')
+    expect(copy?.id).not.toBe(id)
+  })
+
+  it('exports and re-imports games (round-trip)', () => {
+    const id = store().createGame('host')
+    store().renameGame(id, 'Night 1')
+    const json = store().exportGames()
+    useGameStore.setState({
+      games: [],
+      activeGameId: null,
+      history: {},
+      hasHydrated: false,
+    })
+    const result = store().importGames(json)
+    expect(result.added).toBe(1)
+    expect(store().games.some((g) => g.name === 'Night 1')).toBe(true)
+    // Re-importing the same data is a no-op (last-write-wins).
+    expect(store().importGames(json).skipped).toBe(1)
+    expect(store().importGames('not json').error).toBeTruthy()
   })
 
   it('does not start a game with too few players (guarded)', () => {

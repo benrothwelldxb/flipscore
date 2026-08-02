@@ -26,6 +26,14 @@ Progressive Web App.
 - **Delightful & tactile** — animated leaderboards with medals and count-up
   totals, a winner confetti burst + fanfare, and optional sound / haptics you
   control in Settings (reduced-motion respected throughout).
+- **Archive & backup** — every finished game is stored; search, favourite,
+  replay, duplicate, delete, and export / import your whole history as JSON.
+  Games use versioned, soft-deletable records (a `rev` counter + timestamps)
+  ready for future cloud sync.
+- **Player statistics** — games played / won, win %, highest & lowest round,
+  average score and finishing position, longest win streak, most Flip 7
+  bonuses and busts — with hand-built, theme-aware charts that update
+  automatically after every game.
 - **Installable PWA** — works offline, no account needed.
 - **Accessible & fast** — Lighthouse 94 / 100 / 100 / 100
   (performance / a11y / best-practices / SEO).

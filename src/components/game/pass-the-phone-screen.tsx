@@ -8,7 +8,7 @@ import {
   initialsFromName,
   readableTextColor,
 } from '@/domain/colors'
-import type { Game, Player } from '@/domain/types'
+import type { Game, Player, RoundFlags } from '@/domain/types'
 import { useToast } from '@/hooks/use-toast'
 import { vibrate } from '@/lib/haptics'
 import { playSound } from '@/lib/sound'
@@ -55,9 +55,9 @@ export function PassThePhoneScreen({ game }: PassScreenProps) {
   const currentPlayer: Player | undefined = game.players[scoredCount]
   const roundComplete = scoredCount >= game.players.length
 
-  function handleSubmit(value: number) {
+  function handleSubmit(value: number, flags?: RoundFlags) {
     if (!currentPlayer) return
-    store().submitScore(game.id, currentPlayer.id, value)
+    store().submitScore(game.id, currentPlayer.id, value, flags)
     vibrate([10, 30, 10])
     playSound('save')
     // If that entry finished the game, the parent swaps to the results screen.

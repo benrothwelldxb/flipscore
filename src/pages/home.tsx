@@ -1,17 +1,21 @@
-import { useNavigate } from 'react-router'
+import { Link, useNavigate } from 'react-router'
 import { motion } from 'framer-motion'
-import { Plus, Spade } from 'lucide-react'
+import { Archive, ChartColumn, Plus, Spade } from 'lucide-react'
 
 import { Wordmark } from '@/components/brand/wordmark'
 import { EmptyState, LoadingState } from '@/components/common/screen-state'
 import { GameCard } from '@/components/game/game-card'
 import { Button } from '@/components/ui/button'
-import { useGames, useGameStore, useHasHydrated } from '@/stores/game-store'
+import {
+  useActiveGames,
+  useGameStore,
+  useHasHydrated,
+} from '@/stores/game-store'
 
 export function HomePage() {
   const navigate = useNavigate()
   const hydrated = useHasHydrated()
-  const games = useGames()
+  const games = useActiveGames()
 
   if (!hydrated) return <LoadingState />
 
@@ -42,16 +46,31 @@ export function HomePage() {
         New game
       </Button>
 
+      <div className="grid grid-cols-2 gap-2">
+        <Button asChild variant="outline" className="h-11">
+          <Link to="/archive">
+            <Archive className="size-4" />
+            Archive
+          </Link>
+        </Button>
+        <Button asChild variant="outline" className="h-11">
+          <Link to="/stats">
+            <ChartColumn className="size-4" />
+            Stats
+          </Link>
+        </Button>
+      </div>
+
       {sorted.length === 0 ? (
         <EmptyState
           icon={<Spade className="size-10" />}
-          title="No games yet"
-          description="Start a new game to keep score. Everything is saved on this device — no account needed."
+          title="No games in progress"
+          description="Start a new game to keep score. Finished games move to your archive."
         />
       ) : (
         <section className="space-y-2">
           <h2 className="text-muted-foreground text-sm font-semibold">
-            Your games
+            In progress
           </h2>
           <ul className="flex flex-col gap-2">
             {sorted.map((game) => (

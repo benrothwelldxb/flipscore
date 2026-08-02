@@ -130,6 +130,29 @@ the ARIA radio pattern with roving tabindex and arrow keys; drag-and-drop
 (dnd-kit) announces reordering by player name; the Pass-the-Phone handoff moves
 focus and announces via a polite live region.
 
+## Archive, stats & sync-ready storage (Phase 5)
+
+- **Records are sync-ready.** Every game carries `createdAt` / `updatedAt` /
+  `finishedAt`, a monotonic `rev` (bumped on every mutation), a `favorite`
+  flag, and a `deletedAt` **soft-delete tombstone**. `touch()` centralises the
+  updatedAt/rev/finishedAt lifecycle. The persisted store is versioned
+  (`GAMES_SCHEMA_VERSION`) with a `migrate` that upgrades older saves in place —
+  so a future backend can do last-write-wins / merge on `rev` without a data
+  reshape. `deletedAt` means deletes are reconcilable rather than destructive.
+- **Import/merge** (`domain/backup.ts`) validates an uploaded payload with Zod,
+  normalises each game through the same `migrateGame`, and the store merges by
+  `rev`/`updatedAt` (last-write-wins) — the exact operation a sync client needs.
+- **Stats are derived, not stored.** `domain/stats.ts` is a pure engine that
+  aggregates finished, non-deleted games by player name into per-player stats
+  (win %, round extremes, averages, streaks) and cross-player records (highest
+  round, longest streak, most Flip 7s / busts). The Stats page recomputes it
+  with `useMemo` over the store, so it updates automatically after every game.
+  Flip 7 / bust counts come from per-round `flags` recorded when a score is
+  entered via the Card Builder.
+- **Visualisations** are hand-built SVG/CSS (`components/stats/charts.tsx`) —
+  win-rate rings, animated bars, stat tiles, record cards — theme-aware and
+  dependency-free.
+
 ## What's intentionally deferred
 
 **Connected mode** (real-time cross-device scoring) is stubbed in the UI as

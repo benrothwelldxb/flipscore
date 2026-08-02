@@ -13,7 +13,7 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { isRoundComplete } from '@/domain/scoring'
-import type { Game } from '@/domain/types'
+import type { Game, RoundFlags } from '@/domain/types'
 import { useToast } from '@/hooks/use-toast'
 import { vibrate } from '@/lib/haptics'
 import { playSound } from '@/lib/sound'
@@ -39,9 +39,9 @@ export function HostScreen({ game }: HostScreenProps) {
   const complete = isRoundComplete(round, game.players)
   const entryPlayer = game.players.find((p) => p.id === entryPlayerId) ?? null
 
-  function handleSubmit(value: number) {
+  function handleSubmit(value: number, flags?: RoundFlags) {
     if (!entryPlayerId) return
-    store().submitScore(game.id, entryPlayerId, value)
+    store().submitScore(game.id, entryPlayerId, value, flags)
     playSound('save')
     setEntryPlayerId(null)
   }

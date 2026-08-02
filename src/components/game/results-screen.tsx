@@ -1,14 +1,19 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router'
 import { motion, useReducedMotion } from 'framer-motion'
 import { Home, ListOrdered, RotateCcw, Trophy } from 'lucide-react'
 
+import { StickerEarnedBanner } from '@/components/stickers/sticker-earned-banner'
 import { Button } from '@/components/ui/button'
+import { computeAchievementMetrics } from '@/domain/stickers/metrics'
+import type { Sticker } from '@/domain/stickers/types'
 import type { Game } from '@/domain/types'
 import { celebrate } from '@/lib/confetti'
 import { vibrate } from '@/lib/haptics'
 import { playSound } from '@/lib/sound'
+import { toast } from '@/hooks/use-toast'
 import { useGameStore } from '@/stores/game-store'
+import { useStickersStore } from '@/stores/stickers-store'
 
 import { Leaderboard } from './leaderboard'
 import { PlayerAvatar } from './player-avatar'
@@ -24,6 +29,8 @@ export function ResultsScreen({ game }: ResultsScreenProps) {
   const reduce = useReducedMotion()
   const winner = game.players.find((p) => p.id === game.winnerId) ?? null
 
+  const [earned, setEarned] = useState<Sticker[]>([])
+
   const celebrated = useRef(false)
   useEffect(() => {
     if (celebrated.current) return
@@ -31,6 +38,22 @@ export function ResultsScreen({ game }: ResultsScreenProps) {
     vibrate([20, 40, 20, 40, 70])
     celebrate()
     playSound('win')
+
+    // Finishing a game is the moment to award stickers. Reconcile against the
+    // whole (now-updated) history and surface anything freshly earned.
+    const metrics = computeAchievementMetrics(useGameStore.getState().games)
+    const newly = useStickersStore.getState().reconcile(metrics)
+    if (newly.length > 0) {
+      // Capturing the one-time reconcile result to drive the reveal is exactly
+      // what this mount effect is for.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setEarned(newly)
+      toast.success(
+        newly.length === 1
+          ? `Sticker unlocked: ${newly[0].name}`
+          : `${newly.length} new stickers unlocked!`,
+      )
+    }
   }, [])
 
   function playAgain() {
@@ -74,6 +97,8 @@ export function ResultsScreen({ game }: ResultsScreenProps) {
           <h1 className="text-2xl font-bold">Game over</h1>
         )}
       </motion.div>
+
+      <StickerEarnedBanner stickers={earned} />
 
       <section className="space-y-2">
         <h2 className="text-muted-foreground text-sm font-semibold">

@@ -1,7 +1,7 @@
 import { useEffect } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { motion } from 'framer-motion'
-import { Archive, ChartColumn, Plus, Spade, Wifi } from 'lucide-react'
+import { Archive, ChartColumn, Plus, Spade, Sticker, Wifi } from 'lucide-react'
 
 import { AboutDialog } from '@/components/about-dialog'
 import { Wordmark } from '@/components/brand/wordmark'
@@ -14,11 +14,13 @@ import {
   useGameStore,
   useHasHydrated,
 } from '@/stores/game-store'
+import { useNewStickerIds } from '@/stores/stickers-store'
 
 export function HomePage() {
   const navigate = useNavigate()
   const hydrated = useHasHydrated()
   const games = useActiveGames()
+  const newStickers = useNewStickerIds()
   const [params, setParams] = useSearchParams()
 
   function newGame() {
@@ -68,7 +70,7 @@ export function HomePage() {
         </Link>
       </Button>
 
-      <div className="grid grid-cols-2 gap-2">
+      <div className="grid grid-cols-3 gap-2">
         <Button asChild variant="outline" className="h-11">
           <Link to="/archive">
             <Archive className="size-4" />
@@ -79,6 +81,20 @@ export function HomePage() {
           <Link to="/stats">
             <ChartColumn className="size-4" />
             Stats
+          </Link>
+        </Button>
+        <Button asChild variant="outline" className="relative h-11">
+          <Link to="/album">
+            <Sticker className="size-4" />
+            Stickers
+            {newStickers.length > 0 && (
+              <span
+                className="bg-primary absolute -top-1.5 -right-1.5 flex min-w-5 items-center justify-center rounded-full px-1 text-[11px] font-bold text-primary-foreground"
+                aria-label={`${newStickers.length} new stickers`}
+              >
+                {newStickers.length}
+              </span>
+            )}
           </Link>
         </Button>
       </div>

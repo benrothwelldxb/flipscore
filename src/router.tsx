@@ -2,6 +2,7 @@ import { createBrowserRouter, RouterProvider } from 'react-router'
 
 import { AppLayout } from '@/components/layout/app-layout'
 import { RouteErrorFallback } from '@/components/route-error'
+import { AlbumPage } from '@/pages/album'
 import { ArchivePage } from '@/pages/archive'
 import { GamePage } from '@/pages/game'
 import { HomePage } from '@/pages/home'
@@ -19,6 +20,7 @@ const router = createBrowserRouter([
       { path: 'game/:id', element: <GamePage /> },
       { path: 'archive', element: <ArchivePage /> },
       { path: 'stats', element: <StatsPage /> },
+      { path: 'album', element: <AlbumPage /> },
       { path: '*', element: <NotFoundPage /> },
     ],
   },

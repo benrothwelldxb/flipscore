@@ -85,6 +85,8 @@ interface GameState {
     color: string,
     avatar?: AvatarConfig,
   ) => void
+  /** Create a host game seeded with a Game Night's roster, linked to it. */
+  createGameInNight: (nightId: string, players: Player[]) => string
   /** Add a player who has joined a connected lobby; returns the new player id. */
   addConnectedPlayer: (id: string, name: string, color: string) => string
   /** Remove a lobby player (no minimum-count guard, unlike removePlayer). */
@@ -258,6 +260,17 @@ export const useGameStore = create<GameState>()(
           ),
         })),
 
+      createGameInNight: (nightId, players) => {
+        const game: Game = {
+          ...makeGame('host', Date.now()),
+          gameNightId: nightId,
+          // Reuse the night roster's player ids so a night aggregates cleanly.
+          players: players.map((p, index) => ({ ...p, order: index })),
+        }
+        set((s) => ({ games: [...s.games, game], activeGameId: game.id }))
+        return game.id
+      },
+
       beginConnectedLobby: (id, host) => {
         const hostId = host ? createId() : null
         set((s) => ({
@@ -381,7 +394,9 @@ export const useGameStore = create<GameState>()(
         const game: Game = {
           id: createId(),
           name: source.name,
-          players: source.players.map((p) => ({ ...p, id: createId() })),
+          // A rematch keeps the same player identities (ids) so a Game Night
+          // and per-player history treat it as the same people playing again.
+          players: source.players.map((p) => ({ ...p })),
           rounds: [createRound(0)],
           settings: { ...source.settings },
           status: 'playing',
@@ -393,6 +408,7 @@ export const useGameStore = create<GameState>()(
           finishedAt: null,
           rev: 1,
           deletedAt: null,
+          gameNightId: source.gameNightId ?? null,
         }
         set((s) => ({ games: [...s.games, game], activeGameId: game.id }))
         return game.id
@@ -499,6 +515,16 @@ export const useFinishedGames = () =>
   useGameStore(
     useShallow((s) =>
       s.games.filter((g) => !g.deletedAt && g.status === 'finished'),
+    ),
+  )
+
+/** Every non-deleted game belonging to a Game Night (any status). */
+export const useNightGames = (nightId: string | null | undefined) =>
+  useGameStore(
+    useShallow((s) =>
+      nightId
+        ? s.games.filter((g) => !g.deletedAt && g.gameNightId === nightId)
+        : [],
     ),
   )
 

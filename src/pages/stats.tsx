@@ -1,4 +1,5 @@
 import { useMemo } from 'react'
+import { Link } from 'react-router'
 import { Ban, ChartColumn, Flame, Sparkles, TrendingUp } from 'lucide-react'
 
 import { EmptyState, LoadingState } from '@/components/common/screen-state'
@@ -115,9 +116,10 @@ export function StatsPage() {
         <h2 className="text-muted-foreground text-sm font-semibold">Players</h2>
         <div className="flex flex-col gap-2">
           {players.map((player) => (
-            <div
+            <Link
               key={player.name}
-              className="bg-card flex items-center gap-3 rounded-xl border p-3"
+              to={`/player/${encodeURIComponent(player.name)}`}
+              className="bg-card hover:bg-accent/40 focus-visible:ring-ring/50 flex items-center gap-3 rounded-xl border p-3 outline-none transition focus-visible:ring-2"
             >
               <WinRing
                 pct={player.winPct}
@@ -142,7 +144,7 @@ export function StatsPage() {
                   )}
                 </div>
               </div>
-            </div>
+            </Link>
           ))}
         </div>
       </section>

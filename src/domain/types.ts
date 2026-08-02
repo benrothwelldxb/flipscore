@@ -74,10 +74,39 @@ export interface Game {
   rev: number
   /** Soft-delete tombstone timestamp (kept so a sync backend can reconcile). */
   deletedAt: number | null
+  /** The Game Night this game belongs to, if any (see domain/game-night). */
+  gameNightId?: string | null
+}
+
+/**
+ * A Game Night: an evening of several games played by a shared roster. Games
+ * link back via {@link Game.gameNightId}; the night owns the roster (with stable
+ * player ids reused across its games) plus the occasion's metadata. Awards and
+ * the summary are derived from the night's finished games (see game-night.ts).
+ */
+export interface GameNight {
+  id: string
+  /** e.g. "Friday Night", "Christmas", "Pub Night". */
+  name: string
+  venue?: string
+  /** The night's date (epoch ms). */
+  date: number
+  notes?: string
+  /** The night's roster; player ids are reused across the night's games. */
+  players: Player[]
+  createdAt: number
+  updatedAt: number
+  /** Set when the host wraps the night up (locks in the summary). */
+  finishedAt: number | null
+  rev: number
+  deletedAt: number | null
 }
 
 /** Persisted schema version for the games store (see migrate in the store). */
 export const GAMES_SCHEMA_VERSION = 2
+
+/** Persisted schema version for the Game Nights store. */
+export const NIGHTS_SCHEMA_VERSION = 1
 
 export interface LeaderboardEntry {
   player: Player

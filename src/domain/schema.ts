@@ -62,4 +62,19 @@ export const gameSchema = z.object({
   finishedAt: z.number().nullable().optional(),
   rev: z.number().optional(),
   deletedAt: z.number().nullable().optional(),
+  gameNightId: z.string().nullable().optional(),
+})
+
+export const gameNightSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  venue: z.string().optional(),
+  date: z.number(),
+  notes: z.string().optional(),
+  players: z.array(playerSchema),
+  createdAt: z.number(),
+  updatedAt: z.number(),
+  finishedAt: z.number().nullable(),
+  rev: z.number(),
+  deletedAt: z.number().nullable(),
 })

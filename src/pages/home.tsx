@@ -1,7 +1,15 @@
 import { useEffect } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router'
 import { motion } from 'framer-motion'
-import { Archive, ChartColumn, Plus, Spade, Sticker, Wifi } from 'lucide-react'
+import {
+  Archive,
+  ChartColumn,
+  PartyPopper,
+  Plus,
+  Spade,
+  Sticker,
+  Wifi,
+} from 'lucide-react'
 
 import { AboutDialog } from '@/components/about-dialog'
 import { Wordmark } from '@/components/brand/wordmark'
@@ -61,6 +69,18 @@ export function HomePage() {
       <Button size="lg" className="h-14 w-full text-base" onClick={newGame}>
         <Plus className="size-5" />
         New game
+      </Button>
+
+      <Button
+        asChild
+        size="lg"
+        variant="outline"
+        className="from-primary/10 to-accent/20 h-14 w-full bg-gradient-to-br text-base"
+      >
+        <Link to="/nights">
+          <PartyPopper className="size-5" />
+          Game Nights
+        </Link>
       </Button>
 
       <Button asChild variant="outline" className="h-11 w-full">

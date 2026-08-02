@@ -7,7 +7,10 @@ import { ArchivePage } from '@/pages/archive'
 import { GamePage } from '@/pages/game'
 import { HomePage } from '@/pages/home'
 import { JoinPage } from '@/pages/join'
+import { NightPage } from '@/pages/night'
+import { NightsPage } from '@/pages/nights'
 import { NotFoundPage } from '@/pages/not-found'
+import { PlayerPage } from '@/pages/player'
 import { StatsPage } from '@/pages/stats'
 
 const router = createBrowserRouter([
@@ -21,6 +24,9 @@ const router = createBrowserRouter([
       { path: 'archive', element: <ArchivePage /> },
       { path: 'stats', element: <StatsPage /> },
       { path: 'album', element: <AlbumPage /> },
+      { path: 'nights', element: <NightsPage /> },
+      { path: 'night/:id', element: <NightPage /> },
+      { path: 'player/:name', element: <PlayerPage /> },
       { path: '*', element: <NotFoundPage /> },
     ],
   },

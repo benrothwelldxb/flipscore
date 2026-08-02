@@ -1,3 +1,4 @@
+import { generateAvatar } from '@/avatar/generate'
 import { createId } from '@/lib/id'
 
 import { colorForIndex } from './colors'
@@ -27,11 +28,13 @@ function withFlag(
 }
 
 export function createPlayer(order: number, name?: string): Player {
+  const id = createId()
   return {
-    id: createId(),
+    id,
     name: name ?? `Player ${order + 1}`,
     color: colorForIndex(order).key,
     order,
+    avatar: generateAvatar(id),
   }
 }
 

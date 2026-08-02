@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion'
-import { Crown, Target } from 'lucide-react'
+import { Target } from 'lucide-react'
 
 import { CountUp } from '@/components/common/count-up'
 import { computeLeaderboard } from '@/domain/scoring'
@@ -23,6 +23,7 @@ function rankClass(rank: number): string {
 /** Live standings with animated reordering, medals, and count-up totals. */
 export function Leaderboard({ game, className }: LeaderboardProps) {
   const entries = computeLeaderboard(game)
+  const round = game.rounds[game.currentRoundIndex]
 
   return (
     <ol className={cn('flex flex-col gap-2', className)}>
@@ -52,7 +53,20 @@ export function Leaderboard({ game, className }: LeaderboardProps) {
           >
             {entry.rank}
           </span>
-          <PlayerAvatar name={entry.player.name} color={entry.player.color} />
+          <PlayerAvatar
+            name={entry.player.name}
+            color={entry.player.color}
+            avatar={entry.player.avatar}
+            crown={entry.isLeader}
+            winner={
+              game.status === 'finished' && entry.player.id === game.winnerId
+            }
+            expression={
+              game.status === 'playing' && round?.flags?.[entry.player.id]?.bust
+                ? 'bust'
+                : 'default'
+            }
+          />
           <span className="min-w-0 flex-1 truncate font-medium">
             {entry.player.name}
           </span>
@@ -65,12 +79,7 @@ export function Leaderboard({ game, className }: LeaderboardProps) {
               <span className="sr-only">Reached target.</span>
             </>
           )}
-          {entry.isLeader && (
-            <>
-              <Crown className="size-4 shrink-0 text-amber-500" aria-hidden />
-              <span className="sr-only">Leading.</span>
-            </>
-          )}
+          {entry.isLeader && <span className="sr-only">Leading.</span>}
           <span className="w-12 shrink-0 text-right text-lg font-bold tabular-nums">
             <CountUp value={entry.total} />
             <span className="sr-only">{entry.total} points</span>

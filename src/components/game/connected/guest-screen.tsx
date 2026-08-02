@@ -145,7 +145,8 @@ export function ConnectedGuestScreen() {
             <PlayerAvatar
               name={myPlayer.name}
               color={myPlayer.color}
-              className="size-5 text-[10px]"
+              avatar={myPlayer.avatar}
+              size={22}
             />
             <span className="font-medium">{myPlayer.name}</span>
           </p>
@@ -185,7 +186,11 @@ export function ConnectedGuestScreen() {
                 key={player.id}
                 className="bg-card flex items-center gap-3 rounded-xl border p-3"
               >
-                <PlayerAvatar name={player.name} color={player.color} />
+                <PlayerAvatar
+                  name={player.name}
+                  color={player.color}
+                  avatar={player.avatar}
+                />
                 <span className="min-w-0 flex-1 truncate font-medium">
                   {player.name}
                   {player.id === myId && (

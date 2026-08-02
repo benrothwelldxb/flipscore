@@ -159,7 +159,9 @@ export function ArchivePage() {
                         key={player.id}
                         name={player.name}
                         color={player.color}
-                        className="ring-card size-6 text-[10px] ring-2"
+                        avatar={player.avatar}
+                        size={26}
+                        className="ring-card rounded-full ring-2"
                       />
                     ))}
                   </div>

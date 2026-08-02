@@ -245,6 +245,33 @@ drops in later without touching anything else.
   pref (Settings → Experimental). Disabled, none of the module's code paths or
   the tesseract chunk are ever reached.
 
+## Avatar engine (`src/avatar/`)
+
+Players get a fun, deterministic SVG avatar generated from a tiny config.
+
+- **Config is data, not pixels.** `AvatarConfig` (in `domain/types`) is just
+  indices + hex colours. It serialises to JSON and rides inside the player
+  record, so Connected mode synchronises avatars for free — **no image is ever
+  transferred**, only config.
+- **Deterministic pipeline.** `rng.ts` is a seeded PRNG (xmur3 → mulberry32);
+  `generate.ts` turns a seed into a config with a fixed pick order, so the same
+  seed always yields the same avatar and different seeds differ across many
+  independent features. `normalizeAvatar` clamps every index and validates
+  colours, so an untrusted synced/imported config can never break rendering.
+- **Pure SVG parts.** `parts.tsx` holds one small component per feature
+  (background, shirt, face, eyes, eyebrows, mouth, facial hair, glasses, hair,
+  accessory, shadow, highlight, crown) on a shared 100×100 view box. Output is
+  flat shapes with a shared dark outline — no gradients, filters, or raster —
+  so it stays lightweight (< ~90 nodes) and cheap. `avatar.tsx` composes them,
+  memoised, with a per-instance clip id.
+- **Identity isn't colour-only.** Face shape, hair, and features differ by
+  _form_; the avatar is `role="img"` labelled with the player's name and is
+  self-contained (its own background circle) so it reads on either theme.
+- **Minimal animation.** Framer Motion drives an occasional blink, a select
+  bounce, a winner wiggle, a leader crown, and a bust expression — all gated on
+  reduced-motion. `PlayerAvatar` renders the avatar when present and falls back
+  to an initials chip otherwise, so the whole app adopts avatars incrementally.
+
 ## What's intentionally deferred
 
 Known limitation — **host resume**: the seat table (playerId ↔ reconnect token)

@@ -141,7 +141,8 @@ export function RoundHistory({ game, trigger }: RoundHistoryProps) {
                       <PlayerAvatar
                         name={player.name}
                         color={player.color}
-                        className="size-7 text-xs"
+                        avatar={player.avatar}
+                        size={28}
                       />
                       <span className="flex-1 truncate text-sm">
                         {player.name}

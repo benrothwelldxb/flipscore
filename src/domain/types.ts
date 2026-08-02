@@ -1,6 +1,27 @@
 export type GameMode = 'host' | 'pass' | 'connected'
 export type GameStatus = 'setup' | 'playing' | 'finished'
 
+/**
+ * A tiny, deterministic description of a player's avatar. It is just numbers +
+ * hex colours, so it serialises to JSON and synchronises over Connected mode
+ * inside the player record — no images are ever transferred. Indices are
+ * validated/clamped against the avatar palettes at render time.
+ */
+export interface AvatarConfig {
+  skinTone: number
+  faceShape: number
+  hairStyle: number
+  hairColour: string
+  eyes: number
+  eyebrows: number
+  mouth: number
+  glasses: number
+  facialHair: number
+  accessory: number
+  shirtColour: string
+  backgroundColour: string
+}
+
 export interface Player {
   id: string
   name: string
@@ -8,6 +29,8 @@ export interface Player {
   color: string
   /** Display / turn order, 0-based. */
   order: number
+  /** Generated SVG avatar config (optional for backward compatibility). */
+  avatar?: AvatarConfig
 }
 
 /** Optional metadata captured when a score comes from the Card Builder. */

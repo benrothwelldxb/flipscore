@@ -4,11 +4,6 @@ import { motion } from 'framer-motion'
 import { Home, ListOrdered, RotateCcw, Trophy } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import {
-  colorByKey,
-  initialsFromName,
-  readableTextColor,
-} from '@/domain/colors'
 import type { Game } from '@/domain/types'
 import { celebrate } from '@/lib/confetti'
 import { vibrate } from '@/lib/haptics'
@@ -16,6 +11,7 @@ import { playSound } from '@/lib/sound'
 import { useGameStore } from '@/stores/game-store'
 
 import { Leaderboard } from './leaderboard'
+import { PlayerAvatar } from './player-avatar'
 import { RoundHistory } from './round-history'
 
 interface ResultsScreenProps {
@@ -41,8 +37,6 @@ export function ResultsScreen({ game }: ResultsScreenProps) {
     if (newId) navigate(`/game/${newId}`, { replace: true })
   }
 
-  const winnerColor = winner ? colorByKey(winner.color) : null
-
   return (
     <div className="flex flex-col gap-6 py-4">
       <motion.div
@@ -52,24 +46,18 @@ export function ResultsScreen({ game }: ResultsScreenProps) {
         className="flex flex-col items-center gap-3 text-center"
       >
         <Trophy className="size-10 text-amber-500" aria-hidden />
-        {winner && winnerColor ? (
+        {winner ? (
           <>
-            <motion.span
-              className="inline-flex size-24 items-center justify-center rounded-full text-4xl font-bold shadow-lg"
-              style={{
-                backgroundColor: winnerColor.hex,
-                color: readableTextColor(winnerColor.hex),
-              }}
-              animate={{ y: [0, -6, 0] }}
-              transition={{
-                repeat: Infinity,
-                duration: 2.4,
-                ease: 'easeInOut',
-              }}
-              aria-hidden
-            >
-              {initialsFromName(winner.name)}
-            </motion.span>
+            <PlayerAvatar
+              name={winner.name}
+              color={winner.color}
+              avatar={winner.avatar}
+              size={112}
+              winner
+              crown
+              blink
+              className="drop-shadow-lg"
+            />
             <div>
               <p className="text-muted-foreground text-sm tracking-wide uppercase">
                 Winner

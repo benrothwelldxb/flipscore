@@ -31,16 +31,17 @@ import {
   DialogTrigger,
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
-import { PLAYER_LIMITS, type Player } from '@/domain/types'
+import { generateAvatar } from '@/avatar'
+import { PLAYER_LIMITS, type AvatarConfig, type Player } from '@/domain/types'
 import { cn } from '@/lib/utils'
 
-import { ColorPicker } from './color-picker'
+import { AvatarCustomizer } from './avatar-customizer'
 import { PlayerAvatar } from './player-avatar'
 
 interface PlayerEditorProps {
   players: Player[]
   onRename: (playerId: string, name: string) => void
-  onRecolor: (playerId: string, color: string) => void
+  onAvatarChange: (playerId: string, avatar: AvatarConfig) => void
   onRemove: (playerId: string) => void
   onReorder: (orderedIds: string[]) => void
 }
@@ -49,7 +50,7 @@ interface RowProps {
   player: Player
   canRemove: boolean
   onRename: (playerId: string, name: string) => void
-  onRecolor: (playerId: string, color: string) => void
+  onAvatarChange: (playerId: string, avatar: AvatarConfig) => void
   onRemove: (playerId: string) => void
 }
 
@@ -57,7 +58,7 @@ function SortablePlayerRow({
   player,
   canRemove,
   onRename,
-  onRecolor,
+  onAvatarChange,
   onRemove,
 }: RowProps) {
   const {
@@ -97,23 +98,28 @@ function SortablePlayerRow({
         <DialogTrigger asChild>
           <button
             type="button"
-            aria-label={`Change colour for ${player.name}`}
+            aria-label={`Customise ${player.name}'s avatar`}
             className="focus-visible:ring-ring shrink-0 rounded-full outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
           >
-            <PlayerAvatar name={player.name} color={player.color} />
+            <PlayerAvatar
+              name={player.name}
+              color={player.color}
+              avatar={player.avatar}
+            />
           </button>
         </DialogTrigger>
-        <DialogContent>
+        <DialogContent className="max-h-[90svh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Choose a colour</DialogTitle>
+            <DialogTitle>Customise {player.name}</DialogTitle>
           </DialogHeader>
-          <ColorPicker
-            value={player.color}
-            onChange={(color) => onRecolor(player.id, color)}
+          <AvatarCustomizer
+            value={player.avatar ?? generateAvatar(player.id)}
+            name={player.name}
+            onChange={(avatar) => onAvatarChange(player.id, avatar)}
           />
           <DialogFooter>
             <DialogClose asChild>
-              <Button>Done</Button>
+              <Button>Continue</Button>
             </DialogClose>
           </DialogFooter>
         </DialogContent>
@@ -145,7 +151,7 @@ function SortablePlayerRow({
 export function PlayerEditor({
   players,
   onRename,
-  onRecolor,
+  onAvatarChange,
   onRemove,
   onReorder,
 }: PlayerEditorProps) {
@@ -209,7 +215,7 @@ export function PlayerEditor({
               player={player}
               canRemove={canRemove}
               onRename={onRename}
-              onRecolor={onRecolor}
+              onAvatarChange={onAvatarChange}
               onRemove={onRemove}
             />
           ))}

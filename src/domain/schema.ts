@@ -7,11 +7,27 @@ import { z } from 'zod'
  * never trusted without passing through these.
  */
 
+export const avatarConfigSchema = z.object({
+  skinTone: z.number(),
+  faceShape: z.number(),
+  hairStyle: z.number(),
+  hairColour: z.string(),
+  eyes: z.number(),
+  eyebrows: z.number(),
+  mouth: z.number(),
+  glasses: z.number(),
+  facialHair: z.number(),
+  accessory: z.number(),
+  shirtColour: z.string(),
+  backgroundColour: z.string(),
+})
+
 export const playerSchema = z.object({
   id: z.string(),
   name: z.string(),
   color: z.string(),
   order: z.number(),
+  avatar: avatarConfigSchema.optional(),
 })
 
 export const roundFlagsSchema = z.object({

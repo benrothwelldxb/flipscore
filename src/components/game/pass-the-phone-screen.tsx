@@ -3,11 +3,6 @@ import { AnimatePresence, motion } from 'framer-motion'
 import { ArrowRight, Flag, ListOrdered, PartyPopper, Undo2 } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import {
-  colorByKey,
-  initialsFromName,
-  readableTextColor,
-} from '@/domain/colors'
 import type { Game, Player, RoundFlags } from '@/domain/types'
 import { useToast } from '@/hooks/use-toast'
 import { vibrate } from '@/lib/haptics'
@@ -15,6 +10,7 @@ import { playSound } from '@/lib/sound'
 import { useCanUndo, useGameStore } from '@/stores/game-store'
 
 import { Leaderboard } from './leaderboard'
+import { PlayerAvatar } from './player-avatar'
 import { RoundHistory } from './round-history'
 import { ScoreEntryPanel } from './score-entry-panel'
 
@@ -25,21 +21,14 @@ interface PassScreenProps {
 }
 
 function BigAvatar({ player, size = 96 }: { player: Player; size?: number }) {
-  const { hex } = colorByKey(player.color)
   return (
-    <span
-      className="inline-flex shrink-0 items-center justify-center rounded-full font-bold"
-      style={{
-        width: size,
-        height: size,
-        fontSize: Math.round(size * 0.4),
-        backgroundColor: hex,
-        color: readableTextColor(hex),
-      }}
-      aria-hidden
-    >
-      {initialsFromName(player.name)}
-    </span>
+    <PlayerAvatar
+      name={player.name}
+      color={player.color}
+      avatar={player.avatar}
+      size={size}
+      blink
+    />
   )
 }
 

@@ -92,7 +92,11 @@ export function HostLobby({ game }: HostLobbyProps) {
                   key={player.id}
                   className="bg-card flex items-center gap-3 rounded-xl border p-3"
                 >
-                  <PlayerAvatar name={player.name} color={player.color} />
+                  <PlayerAvatar
+                    name={player.name}
+                    color={player.color}
+                    avatar={player.avatar}
+                  />
                   <span className="min-w-0 flex-1 truncate font-medium">
                     {player.name}
                     {status === 'host' && (

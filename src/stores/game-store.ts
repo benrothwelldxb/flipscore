@@ -16,6 +16,7 @@ import {
   setRoundScore,
   startGame as startGameTransform,
 } from '@/domain/game'
+import { generateAvatar } from '@/avatar/generate'
 import { migrateGame } from '@/domain/migrate'
 import { createId } from '@/lib/id'
 import { useRosterStore } from '@/stores/roster-store'
@@ -64,7 +65,7 @@ interface GameState {
   updatePlayer: (
     id: string,
     playerId: string,
-    patch: Partial<Pick<Player, 'name' | 'color'>>,
+    patch: Partial<Pick<Player, 'name' | 'color' | 'avatar'>>,
   ) => void
   reorderPlayers: (id: string, orderedIds: string[]) => void
   updateSettings: (id: string, patch: Partial<GameSettings>) => void
@@ -243,6 +244,7 @@ export const useGameStore = create<GameState>()(
                       name,
                       color,
                       order: g.players.length,
+                      avatar: generateAvatar(name),
                     },
                   ],
                 },
@@ -256,7 +258,15 @@ export const useGameStore = create<GameState>()(
             ...g,
             players:
               host && hostId
-                ? [{ id: hostId, name: host.name, color: host.color, order: 0 }]
+                ? [
+                    {
+                      id: hostId,
+                      name: host.name,
+                      color: host.color,
+                      order: 0,
+                      avatar: generateAvatar(host.name),
+                    },
+                  ]
                 : [],
             rounds: [],
             status: 'setup',
@@ -274,7 +284,13 @@ export const useGameStore = create<GameState>()(
             ...g,
             players: [
               ...g.players,
-              { id: playerId, name, color, order: g.players.length },
+              {
+                id: playerId,
+                name,
+                color,
+                order: g.players.length,
+                avatar: generateAvatar(name),
+              },
             ],
           })),
         }))

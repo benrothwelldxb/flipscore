@@ -103,8 +103,8 @@ export function SetupScreen({ game }: SetupScreenProps) {
           <PlayerEditor
             players={game.players}
             onRename={(id, name) => store().updatePlayer(game.id, id, { name })}
-            onRecolor={(id, color) =>
-              store().updatePlayer(game.id, id, { color })
+            onAvatarChange={(id, avatar) =>
+              store().updatePlayer(game.id, id, { avatar })
             }
             onRemove={(id) => store().removePlayer(game.id, id)}
             onReorder={(ids) => store().reorderPlayers(game.id, ids)}

@@ -72,7 +72,9 @@ export function GameCard({ game, onOpen, onDelete }: GameCardProps) {
                   key={player.id}
                   name={player.name}
                   color={player.color}
-                  className="size-6 ring-2 ring-card text-[10px]"
+                  avatar={player.avatar}
+                  size={26}
+                  className="ring-card rounded-full ring-2"
                 />
               ))}
             </div>

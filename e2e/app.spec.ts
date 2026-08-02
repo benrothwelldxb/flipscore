@@ -4,9 +4,11 @@ test.describe('FlipScore shell', () => {
   test('renders the home launcher', async ({ page }) => {
     await page.goto('/')
     await expect(
-      page.getByRole('link', { name: 'FlipScore home' }),
+      page.getByRole('link', { name: 'FlipScorer home' }),
     ).toBeVisible()
-    await expect(page.getByRole('heading', { name: 'FlipScore' })).toBeVisible()
+    await expect(
+      page.getByRole('heading', { name: 'FlipScorer' }),
+    ).toBeVisible()
     await expect(page.getByRole('button', { name: 'New game' })).toBeVisible()
   })
 

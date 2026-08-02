@@ -1,4 +1,4 @@
-# FlipScore
+# FlipScorer
 
 A mobile-first, card-game-inspired **scorekeeper**, built as an installable
 Progressive Web App.
@@ -62,7 +62,7 @@ npm run dev          # start the dev server
 | `npm run test`           | Unit tests (Vitest)                            |
 | `npm run test:coverage`  | Unit tests with V8 coverage                    |
 | `npm run test:e2e`       | End-to-end tests (Playwright)                  |
-| `npm run generate:icons` | Regenerate the PWA icon set from the SVG mark  |
+| `npm run generate:icons` | Regenerate icons/wordmark from ./brand sources |
 | `npm run validate`       | typecheck + lint + format:check + test + build |
 
 ## Project structure
@@ -70,7 +70,7 @@ npm run dev          # start the dev server
 ```
 src/
   components/
-    brand/        # logo mark
+    brand/        # app icon + wordmark
     layout/       # app shell (header + layout)
     theme/        # theme provider + toggle
     ui/           # shadcn/ui primitives (button, card, dialog, toaster)

@@ -1,6 +1,6 @@
 import { Link } from 'react-router'
 
-import { Logo } from '@/components/brand/logo'
+import { BrandIcon } from '@/components/brand/brand-icon'
 import { ThemeToggle } from '@/components/theme/theme-toggle'
 
 export function AppHeader() {
@@ -10,10 +10,10 @@ export function AppHeader() {
         <Link
           to="/"
           className="focus-visible:ring-ring/50 flex items-center gap-2 rounded-md font-semibold outline-none focus-visible:ring-[3px]"
-          aria-label="FlipScore home"
+          aria-label="FlipScorer home"
         >
-          <Logo className="size-7" decorative />
-          <span className="text-base tracking-tight">FlipScore</span>
+          <BrandIcon className="size-7 rounded-lg" decorative />
+          <span className="text-base tracking-tight">FlipScorer</span>
         </Link>
         <ThemeToggle />
       </div>

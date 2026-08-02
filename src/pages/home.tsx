@@ -2,7 +2,7 @@ import { useNavigate } from 'react-router'
 import { motion } from 'framer-motion'
 import { Plus, Spade } from 'lucide-react'
 
-import { Logo } from '@/components/brand/logo'
+import { Wordmark } from '@/components/brand/wordmark'
 import { EmptyState, LoadingState } from '@/components/common/screen-state'
 import { GameCard } from '@/components/game/game-card'
 import { Button } from '@/components/ui/button'
@@ -30,13 +30,13 @@ export function HomePage() {
         transition={{ type: 'spring', bounce: 0.3 }}
         className="flex flex-col items-center gap-3 pt-2 text-center"
       >
-        <Logo className="size-16 drop-shadow" decorative />
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight">FlipScore</h1>
-          <p className="text-muted-foreground text-sm">
-            Keep score for game night.
-          </p>
+        <h1 className="sr-only">FlipScorer</h1>
+        <div className="w-full max-w-[17rem] rounded-2xl bg-white p-3 shadow-sm ring-1 ring-black/5">
+          <Wordmark alt="" />
         </div>
+        <p className="text-muted-foreground text-sm">
+          Keep score for game night.
+        </p>
       </motion.div>
 
       <Button size="lg" className="h-14 w-full text-base" onClick={newGame}>

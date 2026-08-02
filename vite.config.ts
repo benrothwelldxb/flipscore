@@ -11,13 +11,13 @@ export default defineConfig({
     tailwindcss(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.svg', 'apple-touch-icon.png'],
+      includeAssets: ['favicon.png', 'apple-touch-icon.png'],
       manifest: {
-        name: 'FlipScore',
-        short_name: 'FlipScore',
+        name: 'FlipScorer',
+        short_name: 'FlipScorer',
         description: 'A mobile-first, card-game-inspired scorekeeper.',
         theme_color: '#7c3aed',
-        background_color: '#0e0b1a',
+        background_color: '#0d0b3d',
         display: 'standalone',
         orientation: 'portrait',
         start_url: '/',

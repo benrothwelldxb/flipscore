@@ -1,56 +1,86 @@
-// Generates the PWA icon set (and favicon) from an inline SVG mark so the
-// artwork is reproducible and versioned. Run with `npm run generate:icons`.
-import { mkdir, writeFile } from 'node:fs/promises'
+// Generates the PWA icon set, favicon, and in-app brand images from the brand
+// source assets in ./brand. Run with `npm run generate:icons`.
+import { mkdir } from 'node:fs/promises'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import sharp from 'sharp'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const publicDir = resolve(root, 'public')
+const brandDir = resolve(root, 'brand')
 
-const gradient = `
-  <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-    <stop offset="0" stop-color="#8b5cf6" />
-    <stop offset="1" stop-color="#6366f1" />
-  </linearGradient>`
+const NAVY = '#0d0b3d'
+const ICON_SRC = resolve(brandDir, 'app-icon.png')
+const WORDMARK_SRC = resolve(brandDir, 'wordmark.png')
 
-const cards = `
-  <rect x="150" y="118" width="212" height="276" rx="34" fill="#ffffff" opacity="0.4" transform="rotate(-9 256 256)" />
-  <rect x="150" y="118" width="212" height="276" rx="34" fill="#ffffff" />
-  <line x1="150" y1="256" x2="362" y2="256" stroke="#6366f1" stroke-width="8" stroke-dasharray="2 14" stroke-linecap="round" />
-  <circle cx="202" cy="182" r="16" fill="#ef4444" />
-  <circle cx="310" cy="330" r="16" fill="#6366f1" />`
+/** The icon badge with its outer black border trimmed away. */
+function trimmedIcon() {
+  return sharp(ICON_SRC).trim({ threshold: 20 }).toBuffer()
+}
 
-const iconSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <defs>${gradient}</defs>
-  <rect x="16" y="16" width="480" height="480" rx="112" fill="url(#g)" />
-  ${cards}
-</svg>`
+/** A white rounded-rect used as an alpha mask to round icon corners. */
+function roundedMask(size) {
+  const r = Math.round(size * 0.22)
+  return Buffer.from(
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}"><rect width="${size}" height="${size}" rx="${r}" ry="${r}" fill="#fff"/></svg>`,
+  )
+}
 
-// Maskable: full-bleed background with content pulled into the safe zone.
-const maskableSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
-  <defs>${gradient}</defs>
-  <rect width="512" height="512" fill="url(#g)" />
-  <g transform="translate(256 256) scale(0.72) translate(-256 -256)">${cards}</g>
-</svg>`
-
-async function png(svg, size, name) {
-  await sharp(Buffer.from(svg))
-    .resize(size, size)
+async function roundedIcon(src, size, out) {
+  const base = await sharp(src).resize(size, size, { fit: 'cover' }).toBuffer()
+  await sharp(base)
+    .composite([{ input: roundedMask(size), blend: 'dest-in' }])
     .png()
-    .toFile(resolve(publicDir, name))
-  console.log(`  ✓ ${name} (${size}×${size})`)
+    .toFile(resolve(publicDir, out))
+  console.log('  ✓', out)
+}
+
+async function squareIcon(src, size, out) {
+  await sharp(src)
+    .resize(size, size, { fit: 'cover' })
+    .flatten({ background: NAVY })
+    .png()
+    .toFile(resolve(publicDir, out))
+  console.log('  ✓', out)
+}
+
+async function maskableIcon(src, size, out) {
+  const inner = Math.round(size * 0.84)
+  const content = await sharp(src)
+    .resize(inner, inner, { fit: 'cover' })
+    .toBuffer()
+  await sharp({
+    create: { width: size, height: size, channels: 4, background: NAVY },
+  })
+    .composite([{ input: content, gravity: 'center' }])
+    .png()
+    .toFile(resolve(publicDir, out))
+  console.log('  ✓', out)
 }
 
 async function main() {
   await mkdir(publicDir, { recursive: true })
-  console.log('Generating FlipScore icons…')
-  await png(iconSvg, 192, 'pwa-192x192.png')
-  await png(iconSvg, 512, 'pwa-512x512.png')
-  await png(maskableSvg, 512, 'maskable-512x512.png')
-  await png(maskableSvg, 180, 'apple-touch-icon.png')
-  await writeFile(resolve(publicDir, 'favicon.svg'), `${iconSvg}\n`, 'utf8')
-  console.log('  ✓ favicon.svg')
+  await mkdir(resolve(publicDir, 'brand'), { recursive: true })
+  console.log('Generating FlipScorer brand images…')
+
+  const icon = await trimmedIcon()
+
+  // PWA + favicon.
+  await roundedIcon(icon, 192, 'pwa-192x192.png')
+  await roundedIcon(icon, 512, 'pwa-512x512.png')
+  await maskableIcon(icon, 512, 'maskable-512x512.png')
+  await squareIcon(icon, 180, 'apple-touch-icon.png')
+  await roundedIcon(icon, 48, 'favicon.png')
+
+  // In-app brand images.
+  await roundedIcon(icon, 256, 'brand/icon.png')
+  await sharp(WORDMARK_SRC)
+    .trim({ threshold: 12 })
+    .resize({ width: 1000, withoutEnlargement: true })
+    .png()
+    .toFile(resolve(publicDir, 'brand/wordmark.png'))
+  console.log('  ✓ brand/wordmark.png')
+
   console.log('Done.')
 }
 

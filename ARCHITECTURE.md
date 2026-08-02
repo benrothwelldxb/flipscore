@@ -1,4 +1,4 @@
-# FlipScore — Architecture
+# FlipScorer — Architecture
 
 This document explains how the foundation is structured and the reasoning
 behind it. The goal for this phase was a small, correct, well-separated base

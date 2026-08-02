@@ -1,13 +1,16 @@
-import { Hash, LayoutGrid, type LucideIcon } from 'lucide-react'
+import { useState } from 'react'
+import { Camera, Hash, LayoutGrid, type LucideIcon } from 'lucide-react'
 
 import type { RoundFlags } from '@/domain/types'
 import {
+  useCameraScoringEnabled,
   usePrefsStore,
   useScoreEntryMode,
   type ScoreEntryMode,
 } from '@/stores/prefs-store'
 import { cn } from '@/lib/utils'
 
+import { CameraScorer } from './camera-scorer'
 import { CardBuilder } from './card-builder'
 import { ScoreEntry } from './score-entry'
 
@@ -16,37 +19,64 @@ interface ScoreEntryPanelProps {
   submitLabel?: string
 }
 
-const OPTIONS: { key: ScoreEntryMode; label: string; icon: LucideIcon }[] = [
-  { key: 'manual', label: 'Manual', icon: Hash },
-  { key: 'cards', label: 'Card Builder', icon: LayoutGrid },
-]
+type PanelMode = ScoreEntryMode | 'camera'
 
-/** Score entry with a Manual / Card Builder switch (choice is remembered). */
+const BASE_OPTIONS: { key: ScoreEntryMode; label: string; icon: LucideIcon }[] =
+  [
+    { key: 'manual', label: 'Manual', icon: Hash },
+    { key: 'cards', label: 'Card Builder', icon: LayoutGrid },
+  ]
+
+/** Score entry with a Manual / Card Builder switch (choice is remembered), plus
+ *  an experimental Camera option when the user has opted in. */
 export function ScoreEntryPanel({
   onSubmit,
   submitLabel,
 }: ScoreEntryPanelProps) {
-  const mode = useScoreEntryMode()
+  const persistedMode = useScoreEntryMode()
   const setMode = usePrefsStore((s) => s.setScoreEntryMode)
+  const cameraEnabled = useCameraScoringEnabled()
+  // Camera is a transient per-entry choice, not persisted as the default mode.
+  const [cameraSelected, setCameraSelected] = useState(false)
+
+  const active: PanelMode =
+    cameraSelected && cameraEnabled ? 'camera' : persistedMode
+
+  const options: { key: PanelMode; label: string; icon: LucideIcon }[] = [
+    ...BASE_OPTIONS,
+    ...(cameraEnabled
+      ? [{ key: 'camera' as const, label: 'Camera', icon: Camera }]
+      : []),
+  ]
 
   return (
     <div className="flex flex-col gap-3">
       <div
         role="group"
         aria-label="Score entry method"
-        className="bg-muted grid grid-cols-2 gap-1 rounded-lg p-1"
+        className={cn(
+          'bg-muted grid gap-1 rounded-lg p-1',
+          cameraEnabled ? 'grid-cols-3' : 'grid-cols-2',
+        )}
       >
-        {OPTIONS.map(({ key, label, icon: Icon }) => {
-          const active = mode === key
+        {options.map(({ key, label, icon: Icon }) => {
+          const isActive = active === key
           return (
             <button
               key={key}
               type="button"
-              aria-pressed={active}
-              onClick={() => setMode(key)}
+              aria-pressed={isActive}
+              onClick={() => {
+                if (key === 'camera') {
+                  setCameraSelected(true)
+                } else {
+                  setCameraSelected(false)
+                  setMode(key)
+                }
+              }}
               className={cn(
-                'flex h-9 items-center justify-center gap-1.5 rounded-md text-sm font-medium outline-none transition focus-visible:ring-2 focus-visible:ring-ring/50',
-                active
+                'focus-visible:ring-ring/50 flex h-9 items-center justify-center gap-1.5 rounded-md text-sm font-medium outline-none transition focus-visible:ring-2',
+                isActive
                   ? 'bg-background text-foreground shadow-sm'
                   : 'text-muted-foreground',
               )}
@@ -58,10 +88,14 @@ export function ScoreEntryPanel({
         })}
       </div>
 
-      {mode === 'manual' ? (
+      {active === 'manual' && (
         <ScoreEntry onSubmit={onSubmit} submitLabel={submitLabel} />
-      ) : (
+      )}
+      {active === 'cards' && (
         <CardBuilder onSubmit={onSubmit} submitLabel={submitLabel} />
+      )}
+      {active === 'camera' && (
+        <CameraScorer onSubmit={onSubmit} submitLabel={submitLabel} />
       )}
     </div>
   )

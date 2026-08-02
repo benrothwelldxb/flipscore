@@ -20,6 +20,8 @@ import { cn } from '@/lib/utils'
 interface CardBuilderProps {
   onSubmit: (value: number, flags?: RoundFlags) => void
   submitLabel?: string
+  /** Seed the builder (e.g. with cards detected by Camera Scoring). */
+  initialSelection?: Flip7Selection
 }
 
 // Flip 7's cards are cream faces with a coloured numeral. Number inks form a
@@ -82,8 +84,11 @@ function CardTile({
 export function CardBuilder({
   onSubmit,
   submitLabel = 'Save score',
+  initialSelection,
 }: CardBuilderProps) {
-  const [selection, setSelection] = useState<Flip7Selection>(emptySelection())
+  const [selection, setSelection] = useState<Flip7Selection>(
+    initialSelection ?? emptySelection(),
+  )
   const result = scoreFlip7(selection)
 
   function update(next: Flip7Selection) {

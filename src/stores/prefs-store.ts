@@ -7,9 +7,12 @@ interface PrefsState {
   scoreEntryMode: ScoreEntryMode
   hapticsEnabled: boolean
   soundEnabled: boolean
+  /** Opt-in to the experimental Camera Scoring feature (off by default). */
+  cameraScoringEnabled: boolean
   setScoreEntryMode: (mode: ScoreEntryMode) => void
   setHapticsEnabled: (enabled: boolean) => void
   setSoundEnabled: (enabled: boolean) => void
+  setCameraScoringEnabled: (enabled: boolean) => void
 }
 
 export const usePrefsStore = create<PrefsState>()(
@@ -18,13 +21,16 @@ export const usePrefsStore = create<PrefsState>()(
       scoreEntryMode: 'manual',
       hapticsEnabled: true,
       soundEnabled: false,
+      cameraScoringEnabled: false,
       setScoreEntryMode: (scoreEntryMode) => set({ scoreEntryMode }),
       setHapticsEnabled: (hapticsEnabled) => set({ hapticsEnabled }),
       setSoundEnabled: (soundEnabled) => set({ soundEnabled }),
+      setCameraScoringEnabled: (cameraScoringEnabled) =>
+        set({ cameraScoringEnabled }),
     }),
     {
       name: 'flipscore-prefs',
-      version: 2,
+      version: 3,
       merge: (persisted, current) => {
         const saved = (persisted ?? {}) as Partial<PrefsState>
         return {
@@ -38,6 +44,7 @@ export const usePrefsStore = create<PrefsState>()(
             typeof saved.soundEnabled === 'boolean'
               ? saved.soundEnabled
               : false,
+          cameraScoringEnabled: saved.cameraScoringEnabled === true,
         }
       },
     },
@@ -47,3 +54,5 @@ export const usePrefsStore = create<PrefsState>()(
 export const useScoreEntryMode = () => usePrefsStore((s) => s.scoreEntryMode)
 export const useHapticsEnabled = () => usePrefsStore((s) => s.hapticsEnabled)
 export const useSoundEnabled = () => usePrefsStore((s) => s.soundEnabled)
+export const useCameraScoringEnabled = () =>
+  usePrefsStore((s) => s.cameraScoringEnabled)

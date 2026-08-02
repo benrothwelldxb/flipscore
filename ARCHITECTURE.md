@@ -210,6 +210,41 @@ it, skipping the seeded `Player N` placeholders. The setup screen then offers
 one-tap re-add. Because stats aggregate by **name**, reusing saved players keeps
 a person's history consistent across games.
 
+## Camera Scoring (experimental, isolated, model-pluggable)
+
+An opt-in feature that reads a round's cards from the device camera. It is
+built to be **replaced**, not just used — the whole point is that a better model
+drops in later without touching anything else.
+
+- **Isolated module** — everything lives in `src/vision/` plus one component
+  (`components/game/camera-scorer.tsx`). Nothing in the module imports UI, and
+  the app depends only on the `CardRecognizer` interface and the pure mappers.
+- **Pluggable recognizer** — `CardRecognizer` (`vision/types.ts`) is the single
+  interface a model implements: `recognize(frame) → { cards }`, optional
+  `dispose()`. `vision/recognizer.ts` is a registry; adding a new model is one
+  entry with its own `create()`, and the scorer + settings pick it up. This is
+  the **AI-upgrade seam** — swap the OCR for a trained detector or a hosted
+  vision API with no caller changes.
+- **Deterministic core is tested; the fuzzy model isn't** — `vision/parse.ts`
+  (recognised text → de-duplicated card detections) and `vision/to-selection.ts`
+  (detections → a `Flip7Selection`) are pure and exhaustively unit-tested. The
+  only untestable part is the model itself, which is deliberately the thinnest
+  possible adapter.
+- **Initial model — on-device OCR** (`vision/ocr-recognizer.ts`, tesseract.js).
+  It is **lazy-loaded** via a dynamic import, so the WASM engine never enters the
+  main bundle and only downloads when the user first scans. The OCR engine is
+  injected, so the recognizer is tested with a fake engine. Recognition is
+  best-effort/experimental — number cards read as digits, modifiers as `+N`/`x2`;
+  **Flip 7 is derived** from seven unique numbers by the scoring engine, and
+  **Bust is a one-tap correction**.
+- **Corrections guarantee accuracy** — detections seed the existing Card Builder
+  (`initialSelection`), so the user confirms/edits with the same tiles, live
+  total, and Save used everywhere else, and the score is computed by the same
+  pure `scoreFlip7` engine. The camera is never the source of truth; the user is.
+- **Off by default, user-controllable** — gated behind a `cameraScoringEnabled`
+  pref (Settings → Experimental). Disabled, none of the module's code paths or
+  the tesseract chunk are ever reached.
+
 ## What's intentionally deferred
 
 Known limitation — **host resume**: the seat table (playerId ↔ reconnect token)

@@ -20,6 +20,12 @@ Progressive Web App.
   reclaims their seat automatically.
 - **Saved players** — games remember the players they start with, so the next
   game adds a whole roster back with one tap (and keeps stats consistent).
+- **Camera Scoring (experimental, opt-in)** — point the camera at your cards to
+  detect numbers and modifiers; the detections seed the Card Builder so you
+  confirm/correct and the score is computed automatically. Built behind a
+  pluggable recognizer interface so the model can be upgraded later; the OCR
+  engine is lazy-loaded and the feature is off by default (Settings →
+  Experimental).
 - **Game setup** — 2–12 players, add / edit / remove, drag-and-drop ordering,
   colour selection, initials avatars, target score (default 200).
 - **Live scoring** — running totals, ranked leaderboard, current-leader

@@ -16,6 +16,7 @@ import { vibrate } from '@/lib/haptics'
 import { playSound } from '@/lib/sound'
 import { cn } from '@/lib/utils'
 import {
+  useCameraScoringEnabled,
   useHapticsEnabled,
   usePrefsStore,
   useSoundEnabled,
@@ -33,8 +34,10 @@ export function SettingsDialog() {
   const setTheme = useSetTheme()
   const haptics = useHapticsEnabled()
   const sound = useSoundEnabled()
+  const cameraScoring = useCameraScoringEnabled()
   const setHaptics = usePrefsStore((s) => s.setHapticsEnabled)
   const setSound = usePrefsStore((s) => s.setSoundEnabled)
+  const setCameraScoring = usePrefsStore((s) => s.setCameraScoringEnabled)
   const themeRefs = useRef<(HTMLButtonElement | null)[]>([])
 
   function handleThemeKey(event: KeyboardEvent, index: number) {
@@ -137,6 +140,29 @@ export function SettingsDialog() {
                 if (value) vibrate(20)
               }}
             />
+          </div>
+
+          <div className="border-t pt-4">
+            <p className="text-muted-foreground mb-3 text-xs font-semibold tracking-wide uppercase">
+              Experimental
+            </p>
+            <div className="flex items-center justify-between gap-4">
+              <Label
+                htmlFor="camera-toggle"
+                className="flex-col items-start gap-0.5"
+              >
+                Camera Scoring
+                <span className="text-muted-foreground text-xs font-normal">
+                  Point your camera at your cards to detect them. Best-effort —
+                  always check the result before saving.
+                </span>
+              </Label>
+              <Switch
+                id="camera-toggle"
+                checked={cameraScoring}
+                onCheckedChange={setCameraScoring}
+              />
+            </div>
           </div>
         </div>
       </DialogContent>

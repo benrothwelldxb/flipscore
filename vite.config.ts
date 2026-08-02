@@ -9,6 +9,21 @@ const pkg = createRequire(import.meta.url)('./package.json') as {
   version: string
 }
 
+// The public origin, used to make social-share URLs absolute (Facebook /
+// iMessage require it). Set SITE_URL at build time for production; when unset,
+// the tags fall back to same-origin relative paths.
+const SITE_URL = (process.env.SITE_URL ?? '').replace(/\/$/, '')
+
+/** Replace the `%SITE_URL%` placeholder in index.html at build time. */
+function siteUrlHtml() {
+  return {
+    name: 'flipscorer-site-url',
+    transformIndexHtml(html: string) {
+      return html.replaceAll('%SITE_URL%', SITE_URL)
+    },
+  }
+}
+
 // https://vite.dev/config/
 export default defineConfig({
   define: {
@@ -17,9 +32,9 @@ export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
+    siteUrlHtml(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.png', 'apple-touch-icon.png'],
       manifest: {
         id: '/',
         name: 'FlipScorer — Flip 7 scorekeeper',
@@ -68,14 +83,14 @@ export default defineConfig({
         screenshots: [
           {
             src: 'screenshots/home.png',
-            sizes: '390x844',
+            sizes: '780x1688',
             type: 'image/png',
             form_factor: 'narrow',
             label: 'FlipScorer home',
           },
           {
             src: 'screenshots/play.png',
-            sizes: '390x844',
+            sizes: '780x1688',
             type: 'image/png',
             form_factor: 'narrow',
             label: 'Live scoring',

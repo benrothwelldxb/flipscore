@@ -121,12 +121,14 @@ async function socialImage(icon) {
 // Portrait launch images for current iPhones (device pixels). Android's splash
 // is manifest-driven (background_color + icon), so it needs no image here.
 const APPLE_SPLASH = [
-  { w: 1290, h: 2796 },
-  { w: 1179, h: 2556 },
-  { w: 1284, h: 2778 },
-  { w: 1170, h: 2532 },
-  { w: 828, h: 1792 },
-  { w: 750, h: 1334 },
+  { w: 1320, h: 2868 }, // iPhone 16 Pro Max
+  { w: 1290, h: 2796 }, // 15/16 Pro Max, 14 Plus
+  { w: 1206, h: 2622 }, // iPhone 16 Pro
+  { w: 1179, h: 2556 }, // 14/15 Pro
+  { w: 1284, h: 2778 }, // 12/13 Pro Max
+  { w: 1170, h: 2532 }, // 12/13/14
+  { w: 828, h: 1792 }, // 11 / XR
+  { w: 750, h: 1334 }, // SE / 8
 ]
 
 async function splashImage(icon, width, height) {

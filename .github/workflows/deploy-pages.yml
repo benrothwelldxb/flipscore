@@ -23,6 +23,8 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
       # SPA fallback for client-side routing. Injected here rather than into
       # public/ so it never reaches the Worker assets deploy (which rejects a
       # /* -> /index.html rule as a loop).

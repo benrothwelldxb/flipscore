@@ -20,7 +20,11 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      # Set a repository variable SITE_URL (e.g. https://flipscorer.example.com)
+      # so social-share tags use absolute URLs. Optional; omit for relative.
       - run: npm run build
+        env:
+          SITE_URL: ${{ vars.SITE_URL }}
       - name: Publish to Cloudflare
         uses: cloudflare/wrangler-action@v3
         with:

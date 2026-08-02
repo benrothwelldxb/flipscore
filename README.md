@@ -157,7 +157,13 @@ Connected relay.
   build) plus Playwright e2e on every push and PR.
 - `deploy.yml` publishes the Worker (recommended); `deploy-pages.yml` publishes
   to Pages. Both are manual (`workflow_dispatch`) and need `CLOUDFLARE_API_TOKEN`
-  - `CLOUDFLARE_ACCOUNT_ID` secrets.
+  - `CLOUDFLARE_ACCOUNT_ID` secrets. Set a repository **variable** `SITE_URL`
+    (your public origin) so social-share links use absolute URLs.
 
 See [`ARCHITECTURE.md`](./ARCHITECTURE.md) for the design rationale and
 [`CHANGELOG.md`](./CHANGELOG.md) for release notes.
+
+## License
+
+[MIT](./LICENSE) — a permissive default; change it if your project needs
+different terms.

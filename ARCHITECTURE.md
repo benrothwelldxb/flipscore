@@ -1,15 +1,15 @@
 # FlipScorer — Architecture
 
-This document explains how the foundation is structured and the reasoning
-behind it. The goal for this phase was a small, correct, well-separated base
-that later phases (the scoring engine, game setup, history) can extend without
-re-plumbing.
+This document explains how FlipScorer is structured and the reasoning behind
+it — from the framework-free domain core out to the UI, the Connected-mode
+networking, and the experimental Camera Scoring. The guiding principle
+throughout is a strict separation of concerns so each layer can be tested and
+evolved on its own.
 
 ## Layering
 
-The codebase keeps four concerns deliberately separate. This phase only
-populates the outer layers; the split is set up so business logic and
-persistence can land next without touching UI.
+The codebase keeps four concerns deliberately separate, so business logic and
+persistence never depend on the UI.
 
 ```
 UI (components, pages)
@@ -89,7 +89,7 @@ unit tests → build**. Playwright e2e runs separately (`npm run test:e2e`) and 
 CI. Production vendors are split (`react-vendor`, `motion-vendor`) so the
 long-lived libraries cache independently of app code.
 
-## Domain & game state (v1.0)
+## Domain & game state
 
 The game engine follows the same UI / logic / state / persistence split.
 
@@ -130,7 +130,7 @@ the ARIA radio pattern with roving tabindex and arrow keys; drag-and-drop
 (dnd-kit) announces reordering by player name; the Pass-the-Phone handoff moves
 focus and announces via a polite live region.
 
-## Archive, stats & sync-ready storage (Phase 5)
+## Archive, stats & sync-ready storage
 
 - **Records are sync-ready.** Every game carries `createdAt` / `updatedAt` /
   `finishedAt`, a monotonic `rev` (bumped on every mutation), a `favorite`

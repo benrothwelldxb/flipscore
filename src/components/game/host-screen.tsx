@@ -18,7 +18,7 @@ import { useGameStore } from '@/stores/game-store'
 
 import { Leaderboard } from './leaderboard'
 import { PlayerAvatar } from './player-avatar'
-import { ScoreEntry } from './score-entry'
+import { ScoreEntryPanel } from './score-entry-panel'
 
 interface HostScreenProps {
   game: Game
@@ -146,7 +146,7 @@ export function HostScreen({ game }: HostScreenProps) {
           if (!open) setEntryPlayerId(null)
         }}
       >
-        <DialogContent>
+        <DialogContent className="max-h-[88svh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
               {entryPlayer?.name} · Round {roundNumber}
@@ -156,7 +156,7 @@ export function HostScreen({ game }: HostScreenProps) {
             </DialogDescription>
           </DialogHeader>
           {entryPlayer && (
-            <ScoreEntry
+            <ScoreEntryPanel
               key={entryPlayer.id}
               onSubmit={handleSubmit}
               submitLabel="Save score"

@@ -13,7 +13,7 @@ import { vibrate } from '@/lib/haptics'
 import { useGameStore } from '@/stores/game-store'
 
 import { Leaderboard } from './leaderboard'
-import { ScoreEntry } from './score-entry'
+import { ScoreEntryPanel } from './score-entry-panel'
 
 type Phase = 'scoring' | 'handoff' | 'roundEnd'
 
@@ -113,7 +113,10 @@ export function PassThePhoneScreen({ game }: PassScreenProps) {
                 </p>
               </div>
             </div>
-            <ScoreEntry onSubmit={handleSubmit} submitLabel="Save & pass" />
+            <ScoreEntryPanel
+              onSubmit={handleSubmit}
+              submitLabel="Save & pass"
+            />
           </motion.div>
         )}
 

@@ -15,6 +15,10 @@ Progressive Web App.
   colour selection, initials avatars, target score (default 200).
 - **Live scoring** — running totals, ranked leaderboard, current-leader
   highlighting, winner detection, end-game flow.
+- **Flip 7 Card Builder** — an optional card-selection scorer (number cards,
+  ±/×2 modifiers, Flip 7 bonus, bust, round bonus) with a live total and
+  calculation breakdown, alongside manual entry. The scoring engine is pure and
+  exhaustively unit-tested.
 - **Persistence** — games auto-save to localStorage; resume unfinished games or
   delete them from the launcher.
 - **Installable PWA** — works offline, no account needed.

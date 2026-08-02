@@ -86,3 +86,31 @@ test.describe('Pass the Phone flow', () => {
     ).toBeVisible()
   })
 })
+
+test.describe('Card Builder', () => {
+  test('computes a Flip 7 score from selected cards and saves it', async ({
+    page,
+  }) => {
+    await page.goto('/')
+    await page.getByRole('button', { name: 'New game' }).click()
+    await page.getByRole('button', { name: 'Start game' }).click()
+
+    await page.getByRole('button', { name: 'Enter score for Player 1' }).click()
+    await page.getByRole('button', { name: 'Card Builder' }).click()
+
+    // 1..7 unique cards → 28, plus the Flip 7 bonus of 15 → 43.
+    for (const n of [1, 2, 3, 4, 5, 6, 7]) {
+      await page
+        .getByRole('button', { name: `Number card ${n}`, exact: true })
+        .click()
+    }
+    await expect(page.getByLabel('Round score 43')).toBeVisible()
+
+    await page.getByRole('button', { name: 'Save score' }).click()
+
+    // Player 1's row now shows the computed 43.
+    await expect(
+      page.getByRole('button', { name: /currently 43/i }),
+    ).toBeVisible()
+  })
+})

@@ -110,6 +110,16 @@ The game engine follows the same UI / logic / state / persistence split.
   `pages/game.tsx` off `game.status` + `settings.mode`. They read the game via
   selector hooks and call store actions; no domain logic lives in components.
 
+**Flip 7 Card Builder.** `src/domain/flip7.ts` is a second, self-contained pure
+engine: `scoreFlip7(selection)` computes a round score from selected cards
+(numbers, ±/×2 modifiers, Flip 7 bonus, bust, round bonus) and returns a
+breakdown that always sums to the total. It has zero UI dependencies and is
+exhaustively unit-tested. The `CardBuilder` component holds only local
+selection state and calls the engine on every render; `ScoreEntryPanel` lets the
+user switch between Manual and Card Builder (choice persisted in a prefs store).
+Both entry modes funnel through the same `onSubmit(value)` the game screens
+already use, so nothing downstream knows how the number was produced.
+
 The **state machine** is `status: setup → playing → finished`, with rounds
 advancing inside `playing` and `recordScore` auto-transitioning to `finished`
 when a total reaches the target. Because transforms are pure, the whole flow is

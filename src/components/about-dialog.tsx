@@ -52,12 +52,25 @@ export function AboutDialog({ trigger }: AboutDialogProps) {
               </p>
               <p>
                 <span className="text-foreground font-medium">Billy Regan</span>{' '}
-                is 8 years old and keen to follow in Uncle Ben&apos;s footsteps.
-                He contributed the ideas for all of the app&apos;s features —
-                and the inspiration for the app itself — through his love of
-                Flip 7™.
+                is 8 years old, from London, and an avid Arsenal fan. He&apos;s
+                keen to follow in Uncle Ben&apos;s footsteps, and contributed
+                the ideas for all of the app&apos;s features — and the
+                inspiration for the app itself — through his love of Flip 7™.
               </p>
             </div>
+          </section>
+
+          <section className="border-t pt-4">
+            <h3 className="text-muted-foreground mb-1.5 text-xs font-semibold tracking-wide uppercase">
+              The story
+            </h3>
+            <p className="text-muted-foreground text-sm leading-relaxed">
+              The summer of 2026 found an uncle and his nephew sharing a love of
+              Flip 7 and a growing interest in coding. One afternoon on a beach
+              in Skiathos, they came together to dream up a scorekeeper for
+              their favourite game — Billy inventing the features, Ben writing
+              the code — and FlipScorer was born.
+            </p>
           </section>
 
           <section className="border-t pt-4">

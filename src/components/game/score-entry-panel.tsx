@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Camera, Hash, LayoutGrid, type LucideIcon } from 'lucide-react'
 
+import type { Flip7Rules } from '@/domain/flip7'
 import type { RoundFlags } from '@/domain/types'
 import {
   useCameraScoringEnabled,
@@ -17,6 +18,8 @@ import { ScoreEntry } from './score-entry'
 interface ScoreEntryPanelProps {
   onSubmit: (value: number, flags?: RoundFlags) => void
   submitLabel?: string
+  /** House rules for the Card Builder / Camera total. */
+  rules?: Flip7Rules
 }
 
 type PanelMode = ScoreEntryMode | 'camera'
@@ -32,6 +35,7 @@ const BASE_OPTIONS: { key: ScoreEntryMode; label: string; icon: LucideIcon }[] =
 export function ScoreEntryPanel({
   onSubmit,
   submitLabel,
+  rules,
 }: ScoreEntryPanelProps) {
   const persistedMode = useScoreEntryMode()
   const setMode = usePrefsStore((s) => s.setScoreEntryMode)
@@ -92,10 +96,18 @@ export function ScoreEntryPanel({
         <ScoreEntry onSubmit={onSubmit} submitLabel={submitLabel} />
       )}
       {active === 'cards' && (
-        <CardBuilder onSubmit={onSubmit} submitLabel={submitLabel} />
+        <CardBuilder
+          onSubmit={onSubmit}
+          submitLabel={submitLabel}
+          rules={rules}
+        />
       )}
       {active === 'camera' && (
-        <CameraScorer onSubmit={onSubmit} submitLabel={submitLabel} />
+        <CameraScorer
+          onSubmit={onSubmit}
+          submitLabel={submitLabel}
+          rules={rules}
+        />
       )}
     </div>
   )

@@ -32,6 +32,9 @@ function emptyMetrics(): AchievementMetrics {
     seasonSummer: 0,
     weekendGames: 0,
     lateNightGames: 0,
+    secondChances: 0,
+    freezes: 0,
+    flipThrees: 0,
   }
 }
 
@@ -151,6 +154,15 @@ export function computeAchievementMetrics(games: Game[]): AchievementMetrics {
       const { fromLast, big } = comeback(game)
       if (fromLast) m.comebackWins += 1
       if (big) m.bigComebackWins += 1
+    }
+
+    for (const round of game.rounds) {
+      if (!round.flags) continue
+      for (const f of Object.values(round.flags)) {
+        if (f.secondChance) m.secondChances += 1
+        if (f.freeze) m.freezes += 1
+        if (f.flipThree) m.flipThrees += 1
+      }
     }
 
     const w = whenFinished(game)

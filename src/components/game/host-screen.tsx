@@ -200,6 +200,7 @@ export function HostScreen({ game }: HostScreenProps) {
               key={entryPlayer.id}
               onSubmit={handleSubmit}
               submitLabel="Save score"
+              rules={game.settings.rules}
             />
           )}
         </DialogContent>

@@ -92,6 +92,12 @@ export interface AchievementMetrics {
   weekendGames: number
   /** Games finished between midnight and 5am. */
   lateNightGames: number
+  /** Second Chance cards used across all games. */
+  secondChances: number
+  /** Freeze cards used across all games. */
+  freezes: number
+  /** Flip Three cards used across all games. */
+  flipThrees: number
 }
 
 /** The rule that earns a sticker. */

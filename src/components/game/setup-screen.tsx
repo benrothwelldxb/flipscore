@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { useNavigate } from 'react-router'
 import { ArrowLeft, Play, UserPlus } from 'lucide-react'
 
@@ -15,10 +14,11 @@ import {
 } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { DEFAULT_TARGET_SCORE, PLAYER_LIMITS, type Game } from '@/domain/types'
+import { PLAYER_LIMITS, type Game } from '@/domain/types'
 import { useGameStore } from '@/stores/game-store'
 
 import { ConnectedSetupPanel } from './connected/connected-setup-panel'
+import { HouseRules } from './house-rules'
 import { ModeSelector } from './mode-selector'
 import { PlayerEditor } from './player-editor'
 import { SavedPlayersRow } from './saved-players-row'
@@ -29,9 +29,6 @@ interface SetupScreenProps {
 
 export function SetupScreen({ game }: SetupScreenProps) {
   const navigate = useNavigate()
-  const [targetInput, setTargetInput] = useState(
-    String(game.settings.targetScore),
-  )
 
   const store = useGameStore.getState
 
@@ -39,14 +36,6 @@ export function SetupScreen({ game }: SetupScreenProps) {
   const namesValid = game.players.every((p) => p.name.trim().length > 0)
   const canStart = game.players.length >= PLAYER_LIMITS.min && namesValid
   const atMax = game.players.length >= PLAYER_LIMITS.max
-
-  function commitTarget(raw: string) {
-    const parsed = parseInt(raw, 10)
-    const value =
-      Number.isFinite(parsed) && parsed > 0 ? parsed : DEFAULT_TARGET_SCORE
-    setTargetInput(String(value))
-    store().updateSettings(game.id, { targetScore: value })
-  }
 
   function handleDiscard() {
     store().deleteGame(game.id)
@@ -127,30 +116,21 @@ export function SetupScreen({ game }: SetupScreenProps) {
         </section>
       )}
 
-      <section className="grid grid-cols-2 gap-3">
-        <div className="space-y-2">
-          <Label htmlFor="target-score">Target score</Label>
-          <Input
-            id="target-score"
-            inputMode="numeric"
-            pattern="[0-9]*"
-            value={targetInput}
-            onChange={(event) => setTargetInput(event.target.value)}
-            onBlur={(event) => commitTarget(event.target.value)}
-          />
-        </div>
-        <div className="space-y-2">
-          <Label htmlFor="game-name">Name (optional)</Label>
-          <Input
-            id="game-name"
-            value={game.name}
-            placeholder="Game night"
-            maxLength={40}
-            onChange={(event) =>
-              store().renameGame(game.id, event.target.value)
-            }
-          />
-        </div>
+      <HouseRules
+        targetScore={game.settings.targetScore}
+        rules={game.settings.rules}
+        onChange={(patch) => store().updateSettings(game.id, patch)}
+      />
+
+      <section className="space-y-2">
+        <Label htmlFor="game-name">Name (optional)</Label>
+        <Input
+          id="game-name"
+          value={game.name}
+          placeholder="Game night"
+          maxLength={40}
+          onChange={(event) => store().renameGame(game.id, event.target.value)}
+        />
       </section>
 
       {connected ? (

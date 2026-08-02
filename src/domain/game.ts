@@ -2,6 +2,7 @@ import { generateAvatar } from '@/domain/avatar/generate'
 import { createId } from '@/lib/id'
 
 import { colorForIndex } from './colors'
+import { DEFAULT_RULES } from './flip7'
 import { determineWinner, isGameOver } from './scoring'
 import {
   DEFAULT_TARGET_SCORE,
@@ -12,6 +13,18 @@ import {
   type RoundFlags,
 } from './types'
 
+/** True when a flags object carries at least one set flag. */
+export function hasRoundFlags(flags: RoundFlags | undefined): boolean {
+  return (
+    !!flags &&
+    (!!flags.flip7 ||
+      !!flags.bust ||
+      !!flags.secondChance ||
+      !!flags.freeze ||
+      !!flags.flipThree)
+  )
+}
+
 /** Merge or clear a player's round flags, dropping empty entries. */
 function withFlag(
   existing: Record<string, RoundFlags> | undefined,
@@ -19,8 +32,8 @@ function withFlag(
   flags: RoundFlags | undefined,
 ): Record<string, RoundFlags> | undefined {
   const next = { ...(existing ?? {}) }
-  if (flags && (flags.flip7 || flags.bust)) {
-    next[playerId] = flags
+  if (hasRoundFlags(flags)) {
+    next[playerId] = flags as RoundFlags
   } else {
     delete next[playerId]
   }
@@ -49,7 +62,7 @@ export function createGame(mode: GameMode, now: number): Game {
     name: '',
     players: [createPlayer(0), createPlayer(1)],
     rounds: [],
-    settings: { mode, targetScore: DEFAULT_TARGET_SCORE },
+    settings: { mode, targetScore: DEFAULT_TARGET_SCORE, rules: DEFAULT_RULES },
     status: 'setup',
     currentRoundIndex: 0,
     winnerId: null,

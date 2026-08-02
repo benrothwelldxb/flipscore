@@ -2,7 +2,11 @@ import { useEffect, useRef, useState } from 'react'
 import { Camera, Loader2, RefreshCw, ScanLine, Sparkles } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
-import { emptySelection, type Flip7Selection } from '@/domain/flip7'
+import {
+  emptySelection,
+  type Flip7Rules,
+  type Flip7Selection,
+} from '@/domain/flip7'
 import type { RoundFlags } from '@/domain/types'
 import { cn } from '@/lib/utils'
 import { detectionsToSelection } from '@/vision/to-selection'
@@ -14,6 +18,7 @@ import { CardBuilder } from './card-builder'
 interface CameraScorerProps {
   onSubmit: (value: number, flags?: RoundFlags) => void
   submitLabel?: string
+  rules?: Flip7Rules
 }
 
 type Phase = 'camera' | 'scanning' | 'review'
@@ -44,7 +49,11 @@ function detectionLabel(card: DetectedCard): string {
  * every other entry path. The recognizer is created lazily and disposed on
  * unmount; nothing here knows which model is behind the interface.
  */
-export function CameraScorer({ onSubmit, submitLabel }: CameraScorerProps) {
+export function CameraScorer({
+  onSubmit,
+  submitLabel,
+  rules,
+}: CameraScorerProps) {
   const recognizer = getRecognizerInfo()
   const [phase, setPhase] = useState<Phase>('camera')
   const [error, setError] = useState<string | null>(null)
@@ -181,6 +190,7 @@ export function CameraScorer({ onSubmit, submitLabel }: CameraScorerProps) {
           initialSelection={selection}
           onSubmit={onSubmit}
           submitLabel={submitLabel}
+          rules={rules}
         />
       </div>
     )

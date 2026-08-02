@@ -174,6 +174,25 @@ describe('computeAchievementMetrics', () => {
     expect(m.passGames).toBe(1)
   })
 
+  it('counts action-card usage across rounds', () => {
+    const g = mkGame({
+      players: ['Ada', 'Bo'],
+      rounds: [
+        { Ada: 30, Bo: 200 },
+        { Ada: 200, Bo: 10 },
+      ],
+      flags: {
+        0: { Ada: { secondChance: true }, Bo: { freeze: true } },
+        1: { Ada: { flipThree: true }, Bo: { freeze: true } },
+      },
+      winner: 'Ada',
+    })
+    const m = computeAchievementMetrics([g])
+    expect(m.secondChances).toBe(1)
+    expect(m.freezes).toBe(2)
+    expect(m.flipThrees).toBe(1)
+  })
+
   it('derives seasonal facts from when a game finished', () => {
     const dec = mkGame({
       players: ['A', 'B'],

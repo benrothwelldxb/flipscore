@@ -525,6 +525,44 @@ export const STICKERS: readonly Sticker[] = [
       hint: "Finish a game on New Year's Day.",
     },
   },
+
+  // ---- Action cards ------------------------------------------------------
+  {
+    id: 'second-chance',
+    name: 'Second Chance',
+    rarity: 'common',
+    category: 'luck',
+    art: 'parachute',
+    achievement: {
+      metric: 'secondChances',
+      threshold: 1,
+      hint: 'Use a Second Chance card.',
+    },
+  },
+  {
+    id: 'deep-freeze',
+    name: 'Deep Freeze',
+    rarity: 'rare',
+    category: 'risk',
+    art: 'ice',
+    achievement: {
+      metric: 'freezes',
+      threshold: 10,
+      hint: 'Record 10 Freeze cards.',
+    },
+  },
+  {
+    id: 'triple-threat',
+    name: 'Triple Threat',
+    rarity: 'epic',
+    category: 'risk',
+    art: 'die',
+    achievement: {
+      metric: 'flipThrees',
+      threshold: 10,
+      hint: 'Record 10 Flip Three cards.',
+    },
+  },
 ]
 
 /** Fast lookup by id. */

@@ -18,7 +18,11 @@ describe('createGame', () => {
     const g = createGame('pass', 1000)
     expect(g.status).toBe('setup')
     expect(g.players).toHaveLength(2)
-    expect(g.settings).toEqual({ mode: 'pass', targetScore: 200 })
+    expect(g.settings).toEqual({
+      mode: 'pass',
+      targetScore: 200,
+      rules: { flip7Bonus: 15, flip7Count: 7 },
+    })
     expect(g.rounds).toEqual([])
     expect(g.createdAt).toBe(1000)
   })

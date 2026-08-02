@@ -33,6 +33,9 @@ export const playerSchema = z.object({
 export const roundFlagsSchema = z.object({
   flip7: z.boolean().optional(),
   bust: z.boolean().optional(),
+  secondChance: z.boolean().optional(),
+  freeze: z.boolean().optional(),
+  flipThree: z.boolean().optional(),
 })
 
 export const roundSchema = z.object({
@@ -52,6 +55,9 @@ export const gameSchema = z.object({
   settings: z.object({
     mode: z.enum(['host', 'pass', 'connected']),
     targetScore: z.number(),
+    rules: z
+      .object({ flip7Bonus: z.number(), flip7Count: z.number() })
+      .optional(),
   }),
   status: z.enum(['setup', 'playing', 'finished']),
   currentRoundIndex: z.number(),

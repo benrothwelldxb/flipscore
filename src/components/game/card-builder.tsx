@@ -1,9 +1,20 @@
 import { useState, type ComponentProps, type CSSProperties } from 'react'
-import { Ban, ChevronDown, Minus, Plus, Sparkles } from 'lucide-react'
+import {
+  Ban,
+  ChevronDown,
+  Layers,
+  Minus,
+  Plus,
+  Shield,
+  Snowflake,
+  Sparkles,
+  type LucideIcon,
+} from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { readableTextColor } from '@/domain/colors'
 import {
+  DEFAULT_RULES,
   emptySelection,
   MODIFIERS,
   NUMBER_CARDS,
@@ -12,6 +23,7 @@ import {
   toggleBust,
   toggleModifier,
   toggleNumber,
+  type Flip7Rules,
   type Flip7Selection,
 } from '@/domain/flip7'
 import type { RoundFlags } from '@/domain/types'
@@ -23,7 +35,26 @@ interface CardBuilderProps {
   submitLabel?: string
   /** Seed the builder (e.g. with cards detected by Camera Scoring). */
   initialSelection?: Flip7Selection
+  /** House rules governing the Flip 7 bonus/threshold. */
+  rules?: Flip7Rules
 }
+
+/** The action cards a scorer records as round annotations. */
+interface ActionCards {
+  secondChance: boolean
+  freeze: boolean
+  flipThree: boolean
+}
+
+const ACTION_CARDS: {
+  key: keyof ActionCards
+  label: string
+  icon: LucideIcon
+}[] = [
+  { key: 'secondChance', label: 'Second Chance', icon: Shield },
+  { key: 'freeze', label: 'Freeze', icon: Snowflake },
+  { key: 'flipThree', label: 'Flip Three', icon: Layers },
+]
 
 // Each Flip 7 number card has its own colour (matching the real deck). We fill
 // the whole tile with that colour and render the numeral in whichever of
@@ -89,15 +120,33 @@ export function CardBuilder({
   onSubmit,
   submitLabel = 'Save score',
   initialSelection,
+  rules = DEFAULT_RULES,
 }: CardBuilderProps) {
   const [selection, setSelection] = useState<Flip7Selection>(
     initialSelection ?? emptySelection(),
   )
-  const result = scoreFlip7(selection)
+  const [actions, setActions] = useState<ActionCards>({
+    secondChance: false,
+    freeze: false,
+    flipThree: false,
+  })
+  const result = scoreFlip7(selection, rules)
 
   function update(next: Flip7Selection) {
     setSelection(next)
     vibrate(4)
+  }
+
+  function toggleAction(key: keyof ActionCards) {
+    vibrate(4)
+    setActions((prev) => {
+      const next = { ...prev, [key]: !prev[key] }
+      // A Second Chance means the bust was avoided — the two can't both apply.
+      if (key === 'secondChance' && next.secondChance && selection.busted) {
+        setSelection((s) => ({ ...s, busted: false }))
+      }
+      return next
+    })
   }
 
   return (
@@ -187,11 +236,45 @@ export function CardBuilder({
             'h-11 shrink-0',
             !selection.busted && 'text-destructive',
           )}
-          onClick={() => update(toggleBust(selection))}
+          onClick={() => {
+            const nowBusted = !selection.busted
+            update(toggleBust(selection))
+            if (nowBusted && actions.secondChance) {
+              setActions((a) => ({ ...a, secondChance: false }))
+            }
+          }}
         >
           <Ban className="size-4" />
           {selection.busted ? 'Busted' : 'Bust'}
         </Button>
+      </div>
+
+      <div>
+        <p className="text-muted-foreground mb-1.5 text-xs font-semibold">
+          Action cards
+        </p>
+        <div className="grid grid-cols-3 gap-1.5">
+          {ACTION_CARDS.map(({ key, label, icon: Icon }) => {
+            const on = actions[key]
+            return (
+              <button
+                key={key}
+                type="button"
+                aria-pressed={on}
+                onClick={() => toggleAction(key)}
+                className={cn(
+                  'focus-visible:ring-ring flex h-9 items-center justify-center gap-1 rounded-lg border text-xs font-medium outline-none transition focus-visible:ring-2',
+                  on
+                    ? 'border-primary bg-primary/15 text-primary'
+                    : 'bg-card text-muted-foreground hover:text-foreground',
+                )}
+              >
+                <Icon className="size-3.5" aria-hidden />
+                {label}
+              </button>
+            )
+          })}
+        </div>
       </div>
 
       <details className="group border-border bg-muted/30 rounded-lg border">
@@ -247,6 +330,9 @@ export function CardBuilder({
             onSubmit(result.total, {
               flip7: result.isFlip7,
               bust: result.busted,
+              secondChance: actions.secondChance,
+              freeze: actions.freeze,
+              flipThree: actions.flipThree,
             })
           }}
         >

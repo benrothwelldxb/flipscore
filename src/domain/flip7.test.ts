@@ -1,9 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  DEFAULT_RULES,
   emptySelection,
   FLIP7_BONUS,
   flatValue,
+  resolveRules,
+  RULE_PRESETS,
   scoreFlip7,
   setRoundBonus,
   toggleBust,
@@ -112,6 +115,34 @@ describe('scoreFlip7 — Flip 7 bonus', () => {
     // unique sum 21 → ×2 = 42, + 10 flat, + 15 flip7 = 67
     expect(result.total).toBe(67)
     expect(result.isFlip7).toBe(true)
+  })
+})
+
+describe('scoreFlip7 — house rules', () => {
+  it('uses a custom Flip 7 count and bonus', () => {
+    const family = { flip7Bonus: 20, flip7Count: 6 }
+    // 6 unique cards now earns the bonus…
+    const six = scoreFlip7(sel({ numbers: [1, 2, 3, 4, 5, 6] }), family)
+    expect(six.isFlip7).toBe(true)
+    expect(six.total).toBe(21 + 20)
+    // …and 5 does not.
+    const five = scoreFlip7(sel({ numbers: [1, 2, 3, 4, 5] }), family)
+    expect(five.isFlip7).toBe(false)
+    expect(five.total).toBe(15)
+  })
+
+  it('defaults to the standard rules when none are given', () => {
+    const result = scoreFlip7(sel({ numbers: [1, 2, 3, 4, 5, 6, 7] }))
+    expect(result.total).toBe(28 + FLIP7_BONUS)
+  })
+
+  it('every preset is internally consistent', () => {
+    for (const p of RULE_PRESETS) {
+      expect(p.targetScore).toBeGreaterThan(0)
+      expect(p.rules.flip7Count).toBeGreaterThan(0)
+      expect(p.rules.flip7Bonus).toBeGreaterThanOrEqual(0)
+    }
+    expect(resolveRules(undefined)).toEqual(DEFAULT_RULES)
   })
 })
 

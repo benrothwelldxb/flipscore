@@ -1,7 +1,19 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
-import { Pencil, RotateCcw, Trash2, Undo2 } from 'lucide-react'
+import {
+  Ban,
+  Layers,
+  Pencil,
+  RotateCcw,
+  Shield,
+  Snowflake,
+  Sparkles,
+  Trash2,
+  Undo2,
+  type LucideIcon,
+} from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import type { RoundFlags } from '@/domain/types'
 import {
   Dialog,
   DialogContent,
@@ -19,6 +31,51 @@ import { playSound } from '@/lib/sound'
 import { useCanUndo, useGameStore } from '@/stores/game-store'
 
 import { PlayerAvatar } from './player-avatar'
+
+const FLAG_BADGES: {
+  key: keyof RoundFlags
+  label: string
+  icon: LucideIcon
+  className: string
+}[] = [
+  { key: 'flip7', label: 'Flip 7', icon: Sparkles, className: 'text-primary' },
+  { key: 'bust', label: 'Bust', icon: Ban, className: 'text-destructive' },
+  {
+    key: 'secondChance',
+    label: 'Second Chance',
+    icon: Shield,
+    className: 'text-emerald-500',
+  },
+  {
+    key: 'freeze',
+    label: 'Freeze',
+    icon: Snowflake,
+    className: 'text-sky-500',
+  },
+  {
+    key: 'flipThree',
+    label: 'Flip Three',
+    icon: Layers,
+    className: 'text-amber-500',
+  },
+]
+
+/** Small icons summarising how a round was scored (Flip 7 / bust / action cards). */
+function FlagBadges({ flags }: { flags: RoundFlags }) {
+  const active = FLAG_BADGES.filter((b) => flags[b.key])
+  if (active.length === 0) return null
+  return (
+    <span className="flex items-center gap-1">
+      {active.map(({ key, label, icon: Icon, className }) => (
+        <Icon
+          key={key}
+          className={`size-3.5 ${className}`}
+          aria-label={label}
+        />
+      ))}
+    </span>
+  )
+}
 
 interface EditTarget {
   roundIndex: number
@@ -144,9 +201,12 @@ export function RoundHistory({ game, trigger }: RoundHistoryProps) {
                         avatar={player.avatar}
                         size={28}
                       />
-                      <span className="flex-1 truncate text-sm">
+                      <span className="min-w-0 flex-1 truncate text-sm">
                         {player.name}
                       </span>
+                      {round.flags?.[player.id] && (
+                        <FlagBadges flags={round.flags[player.id]} />
+                      )}
                       <Button
                         variant="outline"
                         className="h-11 min-w-16 gap-1 tabular-nums"

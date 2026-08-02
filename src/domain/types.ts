@@ -1,3 +1,5 @@
+import type { Flip7Rules } from './flip7'
+
 export type GameMode = 'host' | 'pass' | 'connected'
 export type GameStatus = 'setup' | 'playing' | 'finished'
 
@@ -33,10 +35,17 @@ export interface Player {
   avatar?: AvatarConfig
 }
 
-/** Optional metadata captured when a score comes from the Card Builder. */
+/** Optional metadata captured when a score comes from the Card Builder — how a
+ *  round was scored (Flip 7 / bust) and which action cards came into play. */
 export interface RoundFlags {
   flip7?: boolean
   bust?: boolean
+  /** Used a Second Chance to shrug off a would-be bust. */
+  secondChance?: boolean
+  /** Banked via a Freeze card. */
+  freeze?: boolean
+  /** Forced to draw three by a Flip Three card. */
+  flipThree?: boolean
 }
 
 export interface Round {
@@ -53,6 +62,8 @@ export interface GameSettings {
   mode: GameMode
   /** Reaching this total finishes the game. */
   targetScore: number
+  /** Score-affecting house rules (optional; older games fall back to default). */
+  rules?: Flip7Rules
 }
 
 export interface Game {

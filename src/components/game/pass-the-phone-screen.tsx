@@ -139,6 +139,7 @@ export function PassThePhoneScreen({ game }: PassScreenProps) {
             <ScoreEntryPanel
               onSubmit={handleSubmit}
               submitLabel="Save & pass"
+              rules={game.settings.rules}
             />
           </motion.div>
         )}

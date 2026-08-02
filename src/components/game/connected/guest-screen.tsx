@@ -302,6 +302,7 @@ function GuestPlaying({
               submitMyScore(value, flags)
             }}
             submitLabel="Submit score"
+            rules={replica.settings.rules}
           />
         )}
       </section>

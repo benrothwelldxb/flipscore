@@ -27,6 +27,14 @@ interface ThemeState {
   setResolvedTheme: (theme: ResolvedTheme) => void
 }
 
+const THEMES: readonly Theme[] = ['light', 'dark', 'system']
+
+function isTheme(value: unknown): value is Theme {
+  return (
+    typeof value === 'string' && (THEMES as readonly string[]).includes(value)
+  )
+}
+
 export const useThemeStore = create<ThemeState>()(
   persist(
     (set) => ({
@@ -37,8 +45,16 @@ export const useThemeStore = create<ThemeState>()(
     }),
     {
       name: 'flipscore-theme',
+      // Bump when the persisted shape changes; `migrate` maps old saves forward.
+      version: 1,
       // Only the user's choice is persisted; the resolved value is derived.
       partialize: (state) => ({ theme: state.theme }),
+      // Guard against corrupt/legacy values so a bad localStorage entry can
+      // never crash the app (e.g. an unknown theme → undefined icon).
+      merge: (persisted, current) => {
+        const saved = (persisted as Partial<ThemeState> | undefined)?.theme
+        return { ...current, theme: isTheme(saved) ? saved : current.theme }
+      },
     },
   ),
 )

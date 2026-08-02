@@ -64,7 +64,7 @@ export function HomePage() {
           animate={{ rotate: 0, scale: 1 }}
           transition={{ type: 'spring', bounce: 0.5, delay: 0.1 }}
         >
-          <Logo className="size-20 drop-shadow-lg" />
+          <Logo className="size-20 drop-shadow-lg" decorative />
         </motion.div>
         <div className="space-y-2 text-center">
           <h1 className="text-3xl font-bold tracking-tight text-balance">
@@ -86,18 +86,19 @@ export function HomePage() {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Almost there</DialogTitle>
+              <DialogTitle>The scoreboard is on its way</DialogTitle>
               <DialogDescription>
-                The scoreboard is coming in the next update. This build sets up
-                the foundations — theming, layout, and the shared component kit.
+                We&apos;re still shuffling the deck. Setting up a game and
+                keeping score arrive in the next update — thanks for the early
+                look!
               </DialogDescription>
             </DialogHeader>
             <DialogFooter>
               <DialogClose asChild>
                 <Button
                   onClick={() =>
-                    toast.success('Foundations ready', {
-                      description: 'Scoring lands in the next phase.',
+                    toast('See you at game night', {
+                      description: "We'll let you know when scoring is ready.",
                     })
                   }
                 >
@@ -112,9 +113,11 @@ export function HomePage() {
       <motion.div variants={item} className="grid w-full grid-cols-2 gap-3">
         {features.map(({ icon: Icon, title, description, tint }) => (
           <Card key={title} className="gap-3 py-5">
-            <CardHeader className="gap-2">
+            <CardHeader className="gap-2 px-4">
               <Icon className={`size-6 ${tint}`} aria-hidden />
-              <CardTitle className="text-base">{title}</CardTitle>
+              <CardTitle asChild className="text-base">
+                <h2>{title}</h2>
+              </CardTitle>
               <CardDescription>{description}</CardDescription>
             </CardHeader>
           </Card>

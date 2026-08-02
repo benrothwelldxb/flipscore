@@ -34,10 +34,6 @@ export class ErrorBoundary extends Component<
     window.location.reload()
   }
 
-  private handleDismiss = () => {
-    this.setState({ error: null })
-  }
-
   render() {
     if (this.state.error) {
       if (this.props.fallback) return this.props.fallback
@@ -55,12 +51,7 @@ export class ErrorBoundary extends Component<
             FlipScore hit an unexpected error. Your saved games are safe — try
             reloading.
           </p>
-          <div className="flex gap-2">
-            <Button onClick={this.handleReload}>Reload</Button>
-            <Button variant="outline" onClick={this.handleDismiss}>
-              Dismiss
-            </Button>
-          </div>
+          <Button onClick={this.handleReload}>Reload</Button>
         </div>
       )
     }

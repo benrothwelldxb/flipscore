@@ -6,9 +6,36 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta
       name="viewport"
-      content="width=device-width, initial-scale=1.0, viewport-fit=cover, maximum-scale=1"
+      content="width=device-width, initial-scale=1.0, viewport-fit=cover"
     />
-    <meta name="theme-color" content="#7c3aed" />
+    <meta
+      name="theme-color"
+      media="(prefers-color-scheme: light)"
+      content="#7c3aed"
+    />
+    <meta
+      name="theme-color"
+      media="(prefers-color-scheme: dark)"
+      content="#0e0b1a"
+    />
+    <script>
+      // Apply the persisted/system theme before first paint to avoid a flash.
+      ;(function () {
+        try {
+          var stored = localStorage.getItem('flipscore-theme')
+          var theme = stored ? JSON.parse(stored).state.theme : 'system'
+          var dark =
+            theme === 'dark' ||
+            (theme === 'system' &&
+              window.matchMedia('(prefers-color-scheme: dark)').matches)
+          var root = document.documentElement
+          root.classList.toggle('dark', dark)
+          root.style.colorScheme = dark ? 'dark' : 'light'
+        } catch (e) {
+          /* localStorage unavailable — fall back to CSS defaults */
+        }
+      })()
+    </script>
     <meta name="color-scheme" content="light dark" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta

@@ -16,7 +16,7 @@ test.describe('FlipScore app shell', () => {
     await page.getByRole('button', { name: /start a game/i }).click()
     await expect(page.getByRole('dialog')).toBeVisible()
     await expect(
-      page.getByRole('heading', { name: /almost there/i }),
+      page.getByRole('heading', { name: /scoreboard is on its way/i }),
     ).toBeVisible()
   })
 

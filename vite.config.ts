@@ -54,9 +54,10 @@ export default defineConfig({
           if (!id.includes('node_modules')) return
           if (id.includes('framer-motion')) return 'motion-vendor'
           if (
-            id.includes('react-router') ||
-            id.includes('/react-dom/') ||
-            id.includes('/react/')
+            id.includes('/node_modules/react/') ||
+            id.includes('/node_modules/react-dom/') ||
+            id.includes('/node_modules/react-router/') ||
+            id.includes('/node_modules/scheduler/')
           ) {
             return 'react-vendor'
           }
@@ -65,7 +66,6 @@ export default defineConfig({
     },
   },
   test: {
-    globals: true,
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     css: true,

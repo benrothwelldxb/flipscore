@@ -52,7 +52,7 @@
   --chart-2: var(--suit-diamond);
   --chart-3: var(--suit-club);
   --chart-4: var(--primary);
-  --chart-5: var(--accent);
+  --chart-5: var(--suit-spade);
 }
 
 .dark {
@@ -77,7 +77,8 @@
   --accent: oklch(0.32 0.06 330);
   --accent-foreground: oklch(0.94 0.03 330);
 
-  --destructive: oklch(0.68 0.19 25);
+  /* Kept dark enough that white foreground text clears WCAG AA (~4.5:1). */
+  --destructive: oklch(0.52 0.2 27);
 
   --border: oklch(1 0 0 / 12%);
   --input: oklch(1 0 0 / 16%);
@@ -171,26 +172,13 @@
 }
 
 @layer utilities {
-  /* Mobile safe-area helpers, wired to the device insets. */
+  /* Mobile safe-area helpers, wired to the device insets. Horizontal gutters
+     are handled with `max(1rem, env(...))` at the call site so they add to,
+     rather than replace, the base padding. */
   .pt-safe {
     padding-top: env(safe-area-inset-top);
   }
   .pb-safe {
     padding-bottom: env(safe-area-inset-bottom);
-  }
-  .pl-safe {
-    padding-left: env(safe-area-inset-left);
-  }
-  .pr-safe {
-    padding-right: env(safe-area-inset-right);
-  }
-  .px-safe {
-    padding-left: env(safe-area-inset-left);
-    padding-right: env(safe-area-inset-right);
-  }
-  .min-h-dvh-safe {
-    min-height: calc(
-      100svh - env(safe-area-inset-top) - env(safe-area-inset-bottom)
-    );
   }
 }

@@ -3,16 +3,26 @@ import { useId } from 'react'
 import { cn } from '@/lib/utils'
 
 /** The FlipScore mark: a playful stack of flip-cards. */
-export function Logo({ className }: { className?: string }) {
+export function Logo({
+  className,
+  decorative = false,
+}: {
+  className?: string
+  /** When adjacent to a text label, mark the mark decorative to avoid a
+      duplicated accessible name. */
+  decorative?: boolean
+}) {
   const gradientId = useId()
+  const labelling = decorative
+    ? ({ 'aria-hidden': true } as const)
+    : ({ role: 'img', 'aria-label': 'FlipScore' } as const)
 
   return (
     <svg
       viewBox="0 0 512 512"
       className={cn('size-8', className)}
-      role="img"
-      aria-label="FlipScore"
       xmlns="http://www.w3.org/2000/svg"
+      {...labelling}
     >
       <defs>
         <linearGradient id={gradientId} x1="0" y1="0" x2="1" y2="1">

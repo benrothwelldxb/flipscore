@@ -9,10 +9,10 @@ export function AppHeader() {
       <div className="mx-auto flex h-14 w-full max-w-md items-center justify-between px-4">
         <Link
           to="/"
-          className="flex items-center gap-2 font-semibold"
+          className="focus-visible:ring-ring/50 flex items-center gap-2 rounded-md font-semibold outline-none focus-visible:ring-[3px]"
           aria-label="FlipScore home"
         >
-          <Logo className="size-7" />
+          <Logo className="size-7" decorative />
           <span className="text-base tracking-tight">FlipScore</span>
         </Link>
         <ThemeToggle />

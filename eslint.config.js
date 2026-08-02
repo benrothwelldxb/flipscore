@@ -38,6 +38,14 @@ export default tseslint.config(
       ],
     },
   },
+  // Plain JS/MJS tooling (this config, build scripts) — lint with recommended.
+  {
+    files: ['**/*.{js,mjs}'],
+    extends: [js.configs.recommended],
+    languageOptions: {
+      globals: { ...globals.node },
+    },
+  },
   // shadcn/ui primitives co-locate variant helpers with components by
   // design; fast-refresh purity does not apply to these library files.
   {

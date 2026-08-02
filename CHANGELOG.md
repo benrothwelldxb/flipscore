@@ -49,7 +49,10 @@ game **Flip 7**.
   burst + fanfare, and optional sound / haptics you control (reduced-motion
   respected throughout).
 - **Installable PWA** — works offline, no account needed. Maskable icons,
-  shortcuts, social sharing image, and iOS launch screens.
+  shortcuts, social sharing image, and iOS launch screens, with an in-app
+  install prompt (native on Android, Add-to-Home-Screen guidance on iOS).
+- **About & credits** — an About dialog with credits and an unofficial
+  companion-app disclaimer.
 - **Accessible** — keyboard-navigable custom controls (ARIA radio patterns),
   live-region announcements, and labelled interactive elements.
 - **Themed** — light / dark / system with no flash on load.

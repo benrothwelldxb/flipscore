@@ -3,9 +3,11 @@ import { Link, useNavigate, useSearchParams } from 'react-router'
 import { motion } from 'framer-motion'
 import { Archive, ChartColumn, Plus, Spade, Wifi } from 'lucide-react'
 
+import { AboutDialog } from '@/components/about-dialog'
 import { Wordmark } from '@/components/brand/wordmark'
 import { EmptyState, LoadingState } from '@/components/common/screen-state'
 import { GameCard } from '@/components/game/game-card'
+import { InstallPrompt } from '@/components/install-prompt'
 import { Button } from '@/components/ui/button'
 import {
   useActiveGames,
@@ -51,6 +53,8 @@ export function HomePage() {
           Keep score for game night.
         </p>
       </motion.div>
+
+      <InstallPrompt />
 
       <Button size="lg" className="h-14 w-full text-base" onClick={newGame}>
         <Plus className="size-5" />
@@ -102,6 +106,14 @@ export function HomePage() {
           </ul>
         </section>
       )}
+
+      <footer className="mt-auto flex flex-col items-center gap-1 pt-6 text-center">
+        <AboutDialog />
+        <p className="text-muted-foreground max-w-xs text-[11px] leading-snug text-balance">
+          Unofficial companion app — not affiliated with Flip 7™, Eric Olsen, or
+          The Op Games.
+        </p>
+      </footer>
     </div>
   )
 }

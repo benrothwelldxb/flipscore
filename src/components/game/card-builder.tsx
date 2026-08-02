@@ -2,6 +2,7 @@ import { useState, type ComponentProps, type CSSProperties } from 'react'
 import { Ban, ChevronDown, Minus, Plus, Sparkles } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
+import { readableTextColor } from '@/domain/colors'
 import {
   emptySelection,
   MODIFIERS,
@@ -24,38 +25,41 @@ interface CardBuilderProps {
   initialSelection?: Flip7Selection
 }
 
-// Flip 7's cards are cream faces with a coloured numeral. Number inks form a
-// rainbow (approximating the real deck); modifier cards are orange.
-const CARD_FACE = '#f5efdd'
-const NUMBER_INK = [
-  '#6b7280',
-  '#0d9488',
-  '#2563eb',
-  '#dc2626',
-  '#ea580c',
-  '#16a34a',
-  '#7c3aed',
-  '#0891b2',
-  '#db2777',
-  '#65a30d',
-  '#e11d48',
-  '#d97706',
-  '#9333ea',
+// Each Flip 7 number card has its own colour (matching the real deck). We fill
+// the whole tile with that colour and render the numeral in whichever of
+// black/white has the higher contrast, so every card is legible — the number,
+// not the colour alone, is always the primary signal.
+const NUMBER_COLORS = [
+  '#ec4899', // 0  pink
+  '#b0a28e', // 1  warm light grey
+  '#84cc16', // 2  lime green
+  '#ef4444', // 3  red
+  '#14b8a6', // 4  turquoise
+  '#15803d', // 5  dark green
+  '#7c3aed', // 6  purple
+  '#a13b2a', // 7  browny red
+  '#22c55e', // 8  green
+  '#f97316', // 9  orange
+  '#dc2626', // 10 red
+  '#38bdf8', // 11 light blue
+  '#6b7280', // 12 grey
 ]
-const MODIFIER_INK = '#ea580c'
-const DOUBLER_INK = '#c2410c'
+const MODIFIER_COLOR = '#ea580c'
+const DOUBLER_COLOR = '#b91c1c'
 
 function CardTile({
   label,
-  ink,
+  color,
   active,
   className,
   ...props
 }: {
   label: string
-  ink: string
+  /** The card's face colour; the numeral is auto-contrasted against it. */
+  color: string
   active: boolean
 } & ComponentProps<'button'>) {
+  const ink = readableTextColor(color)
   return (
     <button
       type="button"
@@ -63,15 +67,15 @@ function CardTile({
       style={
         {
           color: ink,
-          backgroundColor: CARD_FACE,
-          ...(active ? { '--tw-ring-color': ink } : {}),
+          backgroundColor: color,
+          '--tw-ring-color': ink,
         } as CSSProperties
       }
       className={cn(
-        'flex aspect-[3/4] items-center justify-center rounded-md border border-black/10 text-lg font-extrabold tabular-nums outline-none transition focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
+        'relative flex aspect-[3/4] items-center justify-center rounded-md border border-black/10 text-xl font-extrabold tabular-nums shadow-sm outline-none transition focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-background',
         active
-          ? 'scale-[1.05] shadow-md ring-2'
-          : 'opacity-90 hover:opacity-100',
+          ? 'z-10 scale-[1.08] shadow-md ring-2 ring-offset-2 ring-offset-background'
+          : 'opacity-70 hover:opacity-100',
         className,
       )}
       {...props}
@@ -107,7 +111,7 @@ export function CardBuilder({
             <CardTile
               key={n}
               label={String(n)}
-              ink={NUMBER_INK[n]}
+              color={NUMBER_COLORS[n]}
               active={selection.numbers.includes(n)}
               aria-label={`Number card ${n}`}
               onClick={() => update(toggleNumber(selection, n))}
@@ -127,7 +131,7 @@ export function CardBuilder({
               <CardTile
                 key={modifier}
                 label={isDouble ? '×2' : modifier}
-                ink={isDouble ? DOUBLER_INK : MODIFIER_INK}
+                color={isDouble ? DOUBLER_COLOR : MODIFIER_COLOR}
                 active={selection.modifiers.includes(modifier)}
                 aria-label={
                   isDouble ? 'Times two' : `Plus ${modifier.slice(1)}`

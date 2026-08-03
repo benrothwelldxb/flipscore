@@ -3,11 +3,13 @@ import { create } from 'zustand'
 import { normalizeName } from '@/domain/analysis'
 import { computeIdentityStats } from '@/domain/social'
 import { STICKERS } from '@/domain/stickers/catalog'
+import { computeAchievementMetrics } from '@/domain/stickers/metrics'
 import { AccountApiError } from '@/net/account-api'
 import * as api from '@/net/social-api'
 import type { FriendIdentity, MyIdentity } from '@/net/social-api'
 import { useAccountStore } from '@/stores/account-store'
 import { useGameStore } from '@/stores/game-store'
+import { useIdentityStore } from '@/stores/identity-store'
 import { useNightsStore } from '@/stores/nights-store'
 import { useProfileStore } from '@/stores/profile-store'
 import { useStickersStore } from '@/stores/stickers-store'
@@ -27,7 +29,12 @@ interface SocialState {
 
   /** Load identity + friends, then publish fresh stats (best effort). */
   fetchAll: () => Promise<void>
-  /** Claim a player name as this identity, and publish its stats. */
+  /**
+   * Set who "you" are — the single place identity is chosen. Updates the local
+   * identity (which drives the Sticker Book), rebuilds achievements for that
+   * player, and — when signed in — publishes it to the friends leaderboard.
+   * Works offline; the leaderboard part is skipped without an account.
+   */
   claimName: (name: string) => Promise<void>
   /** Recompute and publish the claimed identity's stats snapshot. */
   publishStats: () => Promise<void>
@@ -56,6 +63,15 @@ export const useSocialStore = create<SocialState>()((set, get) => ({
         api.getFriends(token),
       ])
       set({ identity, friends, status: 'idle' })
+      // Keep the leaderboard name in step with the local "you" identity: an
+      // explicit local choice wins over the server's default display name.
+      const local = useIdentityStore.getState().name
+      if (local && local !== identity.displayName) {
+        const { identity: synced } = await api.saveIdentity(token, {
+          displayName: local,
+        })
+        set({ identity: synced })
+      }
       await get().publishStats()
     } catch (e) {
       set({
@@ -66,11 +82,20 @@ export const useSocialStore = create<SocialState>()((set, get) => ({
   },
 
   async claimName(name) {
+    const trimmed = name.trim()
+    // Local identity is the source of truth — it drives the Sticker Book and
+    // works offline. Set it and rebuild achievements for that player.
+    useIdentityStore.getState().setName(trimmed)
+    useStickersStore
+      .getState()
+      .rebuild(
+        computeAchievementMetrics(useGameStore.getState().games, trimmed),
+      )
+
+    // If signed in, also publish the name + stats to the leaderboard.
     const token = useAccountStore.getState().token
     if (!token) return
-    const { identity } = await api.saveIdentity(token, {
-      displayName: name.trim(),
-    })
+    const { identity } = await api.saveIdentity(token, { displayName: trimmed })
     set({ identity })
     await get().publishStats()
   },

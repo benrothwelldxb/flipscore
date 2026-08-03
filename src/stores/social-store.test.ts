@@ -2,7 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { useAccountStore } from './account-store'
 import { useGameStore } from './game-store'
+import { useIdentityStore } from './identity-store'
 import { useSocialStore } from './social-store'
+import { useStickersStore } from './stickers-store'
 
 interface Identity {
   accountId: string
@@ -71,6 +73,8 @@ function installFakeApi(initial?: Partial<Identity>) {
 function reset() {
   useAccountStore.setState({ token: null, user: null })
   useGameStore.setState({ games: [] })
+  useIdentityStore.setState({ name: null })
+  useStickersStore.getState().reset()
   useSocialStore.setState({
     identity: null,
     friends: [],
@@ -106,6 +110,16 @@ describe('social store', () => {
     await useSocialStore.getState().fetchAll()
     await useSocialStore.getState().claimName('Zoe')
     expect(useSocialStore.getState().identity?.displayName).toBe('Zoe')
+    // Unified: claiming also sets the local "you" identity (drives stickers).
+    expect(useIdentityStore.getState().name).toBe('Zoe')
+  })
+
+  it('claiming works offline: sets the local identity, no network call', async () => {
+    const fetchMock = installFakeApi()
+    // Signed out.
+    await useSocialStore.getState().claimName('Ada')
+    expect(useIdentityStore.getState().name).toBe('Ada')
+    expect(fetchMock).not.toHaveBeenCalled()
   })
 
   it('adds and removes friends', async () => {

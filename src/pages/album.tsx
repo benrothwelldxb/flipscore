@@ -12,7 +12,8 @@ import { CATEGORY_BLURBS, CATEGORY_LABELS } from '@/domain/stickers/rarity'
 import { CATEGORIES, RARITIES, type Sticker } from '@/domain/stickers/types'
 import { cn } from '@/lib/utils'
 import { useAllGames, useHasHydrated } from '@/stores/game-store'
-import { useIdentityStore, useMyName } from '@/stores/identity-store'
+import { useMyName } from '@/stores/identity-store'
+import { useSocialStore } from '@/stores/social-store'
 import {
   useCollectionProgress,
   useNewStickerIds,
@@ -52,10 +53,11 @@ export function AlbumPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gamesHydrated, stickersHydrated])
 
-  // Switching who "you" are rebuilds the album to that player's achievements.
+  // Switching who "you" are rebuilds the album to that player's achievements —
+  // and, when signed in, updates the friends leaderboard too (one source of
+  // truth for identity across the app).
   function chooseMe(name: string) {
-    useIdentityStore.getState().setName(name)
-    useStickersStore.getState().rebuild(computeAchievementMetrics(games, name))
+    void useSocialStore.getState().claimName(name)
   }
 
   if (!gamesHydrated || !stickersHydrated) return <LoadingState />

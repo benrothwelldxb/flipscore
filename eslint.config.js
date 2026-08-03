@@ -62,9 +62,11 @@ export default tseslint.config(
     files: [
       'vite.config.ts',
       'playwright.config.ts',
+      'playwright.full.config.ts',
       'eslint.config.js',
       'scripts/**/*.{js,mjs}',
       'e2e/**/*.{ts,tsx}',
+      'e2e-full/**/*.{ts,tsx}',
     ],
     languageOptions: {
       globals: { ...globals.node },

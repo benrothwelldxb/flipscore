@@ -143,13 +143,14 @@ export default defineConfig({
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
     css: true,
-    exclude: [...configDefaults.exclude, 'e2e/**'],
+    exclude: [...configDefaults.exclude, 'e2e/**', 'e2e-full/**'],
     coverage: {
       provider: 'v8',
       reportsDirectory: './coverage',
       exclude: [
         ...(configDefaults.coverage.exclude ?? []),
         'e2e/**',
+        'e2e-full/**',
         'scripts/**',
         '**/*.config.*',
         'src/main.tsx',

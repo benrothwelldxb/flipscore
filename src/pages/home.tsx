@@ -8,6 +8,7 @@ import {
   Plus,
   Spade,
   Sticker,
+  Users,
   Wifi,
 } from 'lucide-react'
 
@@ -90,7 +91,7 @@ export function HomePage() {
         </Link>
       </Button>
 
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2">
         <Button asChild variant="outline" className="h-11">
           <Link to="/archive">
             <Archive className="size-4" />
@@ -115,6 +116,12 @@ export function HomePage() {
                 {newStickers.length}
               </span>
             )}
+          </Link>
+        </Button>
+        <Button asChild variant="outline" className="h-11">
+          <Link to="/friends">
+            <Users className="size-4" />
+            Friends
           </Link>
         </Button>
       </div>

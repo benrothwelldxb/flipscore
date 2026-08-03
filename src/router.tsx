@@ -4,6 +4,7 @@ import { AppLayout } from '@/components/layout/app-layout'
 import { RouteErrorFallback } from '@/components/route-error'
 import { AlbumPage } from '@/pages/album'
 import { ArchivePage } from '@/pages/archive'
+import { FriendsPage } from '@/pages/friends'
 import { GamePage } from '@/pages/game'
 import { HomePage } from '@/pages/home'
 import { JoinPage } from '@/pages/join'
@@ -26,6 +27,7 @@ const router = createBrowserRouter([
       { path: 'album', element: <AlbumPage /> },
       { path: 'nights', element: <NightsPage /> },
       { path: 'night/:id', element: <NightPage /> },
+      { path: 'friends', element: <FriendsPage /> },
       { path: 'player/:name', element: <PlayerPage /> },
       { path: '*', element: <NotFoundPage /> },
     ],

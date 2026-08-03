@@ -32,8 +32,9 @@ export class AccountApiError extends Error {
   }
 }
 
-/** Core fetch wrapper: JSON in/out, Bearer auth, and typed error codes. */
-async function request<T>(
+/** Core fetch wrapper: JSON in/out, Bearer auth, and typed error codes.
+ *  Exported as `apiRequest` for sibling clients (e.g. the social API). */
+export async function apiRequest<T>(
   url: string,
   init: RequestInit & { token?: string } = {},
 ): Promise<T> {
@@ -74,7 +75,7 @@ function call<T>(
   path: string,
   init: RequestInit & { token?: string } = {},
 ): Promise<T> {
-  return request<T>(`${BASE}${path}`, init)
+  return apiRequest<T>(`${BASE}${path}`, init)
 }
 
 export function requestCode(email: string): Promise<RequestCodeResult> {
@@ -111,7 +112,7 @@ export function syncLibrary(
   cursor: number,
   changes: SyncItem[],
 ): Promise<SyncResponse> {
-  return request<SyncResponse>('/api/sync', {
+  return apiRequest<SyncResponse>('/api/sync', {
     method: 'POST',
     token,
     body: JSON.stringify({ since: cursor, changes }),

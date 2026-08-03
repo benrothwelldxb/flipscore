@@ -1,4 +1,5 @@
 import { handleAuth } from './auth'
+import { handleSocial } from './social'
 import { handleSync } from './sync'
 import { SignalRoom } from './signal-room'
 import type { Env } from './worker.d'
@@ -26,6 +27,9 @@ export default {
     }
     if (url.pathname === '/api/sync') {
       return handleSync(request, env)
+    }
+    if (url.pathname.startsWith('/api/social/')) {
+      return handleSocial(request, env)
     }
     return env.ASSETS.fetch(request)
   },

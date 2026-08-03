@@ -1,14 +1,16 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react'
-import { Check, Copy, Trophy, UserPlus, Users, X } from 'lucide-react'
+import { Check, Clock, Copy, Trophy, UserPlus, Users, X } from 'lucide-react'
 
 import { EmptyState, LoadingState } from '@/components/common/screen-state'
 import { PageHeader } from '@/components/layout/page-header'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
+  headToHeadForFriend,
   parseIdentityStats,
   playerNameOptions,
   rankLeaderboard,
+  type FriendH2H,
   type LeaderboardEntry,
 } from '@/domain/social'
 import { useToast } from '@/hooks/use-toast'
@@ -16,8 +18,11 @@ import { cn } from '@/lib/utils'
 import { AccountApiError } from '@/net/account-api'
 import { useIsSignedIn } from '@/stores/account-store'
 import { useAllGames } from '@/stores/game-store'
+import { useMyName } from '@/stores/identity-store'
 import {
   useFriends,
+  useIncomingRequests,
+  useOutgoingRequests,
   useSocialIdentity,
   useSocialStatus,
   useSocialStore,
@@ -71,6 +76,18 @@ function FriendsContent() {
   const identity = useSocialIdentity()
   const friends = useFriends()
   const status = useSocialStatus()
+  const myName = useMyName()
+  const games = useAllGames()
+
+  // Head-to-head per friend (using their real name, empty → none), computed
+  // once per data change rather than inside every leaderboard row's render.
+  const h2h = useMemo(() => {
+    const map = new Map<string, FriendH2H | null>()
+    for (const f of friends) {
+      map.set(f.accountId, headToHeadForFriend(myName, f.displayName, games))
+    }
+    return map
+  }, [friends, myName, games])
 
   const leaderboard = useMemo<LeaderboardEntry[]>(() => {
     const entries: LeaderboardEntry[] = []
@@ -99,9 +116,88 @@ function FriendsContent() {
   return (
     <>
       <IdentityCard />
+      <Requests />
       <AddFriend />
-      <Leaderboard entries={leaderboard} />
+      <Leaderboard entries={leaderboard} h2h={h2h} />
     </>
+  )
+}
+
+function Requests() {
+  const incoming = useIncomingRequests()
+  const outgoing = useOutgoingRequests()
+  const accept = useSocialStore((s) => s.acceptRequest)
+  const reject = useSocialStore((s) => s.rejectRequest)
+  const { toast } = useToast()
+
+  async function onAccept(id: string) {
+    try {
+      await accept(id)
+      toast('Friend added')
+    } catch {
+      toast('Could not accept — try again')
+    }
+  }
+
+  async function onReject(id: string) {
+    try {
+      await reject(id)
+    } catch {
+      toast('Could not reject — try again')
+    }
+  }
+
+  if (incoming.length === 0 && outgoing.length === 0) return null
+
+  return (
+    <section className="space-y-2">
+      {incoming.length > 0 && (
+        <>
+          <h2 className="text-sm font-semibold">Friend requests</h2>
+          <ul className="flex flex-col gap-1.5">
+            {incoming.map((r) => (
+              <li
+                key={r.accountId}
+                className="bg-card flex items-center gap-2 rounded-xl border p-3"
+              >
+                <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                  {r.displayName || 'Player'}
+                </span>
+                <Button size="sm" onClick={() => void onAccept(r.accountId)}>
+                  <Check className="size-4" />
+                  Accept
+                </Button>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  aria-label={`Reject ${r.displayName || 'request'}`}
+                  onClick={() => void onReject(r.accountId)}
+                >
+                  <X className="size-4" />
+                </Button>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
+      {outgoing.length > 0 && (
+        <ul className="flex flex-col gap-1.5">
+          {outgoing.map((r) => (
+            <li
+              key={r.accountId}
+              className="text-muted-foreground flex items-center gap-2 rounded-xl border border-dashed p-3 text-sm"
+            >
+              <Clock className="size-4 shrink-0" aria-hidden />
+              <span className="min-w-0 flex-1 truncate">
+                Request sent to {r.displayName || 'a player'}
+              </span>
+              <span className="text-xs">Pending</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </section>
   )
 }
 
@@ -204,9 +300,9 @@ function AddFriend() {
     setError(null)
     setBusy(true)
     try {
-      await addFriend(code)
+      const status = await addFriend(code)
       setCode('')
-      toast('Friend added')
+      toast(status === 'pending' ? 'Request sent' : 'Friend added')
     } catch (err) {
       setError(addFriendError(err))
     } finally {
@@ -222,6 +318,9 @@ function AddFriend() {
       <label htmlFor="friend-code" className="text-sm font-medium">
         Add a friend
       </label>
+      <p className="text-muted-foreground -mt-1 text-xs">
+        Enter their code to send a request — they’ll need to accept.
+      </p>
       <div className="flex gap-2">
         <Input
           id="friend-code"
@@ -238,7 +337,7 @@ function AddFriend() {
         />
         <Button type="submit" disabled={busy || code.trim().length === 0}>
           <UserPlus className="size-4" />
-          Add
+          Send
         </Button>
       </div>
       {error && (
@@ -250,7 +349,13 @@ function AddFriend() {
   )
 }
 
-function Leaderboard({ entries }: { entries: LeaderboardEntry[] }) {
+function Leaderboard({
+  entries,
+  h2h,
+}: {
+  entries: LeaderboardEntry[]
+  h2h: Map<string, FriendH2H | null>
+}) {
   const removeFriend = useSocialStore((s) => s.removeFriend)
 
   if (entries.length === 0) {
@@ -294,6 +399,16 @@ function Leaderboard({ entries }: { entries: LeaderboardEntry[] }) {
                 {entry.stats.gamesWon}W · {entry.stats.gamesPlayed} played ·{' '}
                 {Math.round(entry.stats.winPct * 100)}% · Lv {entry.stats.level}
               </p>
+              {!entry.isSelf &&
+                (() => {
+                  const rec = h2h.get(entry.accountId)
+                  return rec ? (
+                    <p className="text-muted-foreground text-xs">
+                      vs you {rec.mine}–{rec.theirs}{' '}
+                      <span className="opacity-70">(your games)</span>
+                    </p>
+                  ) : null
+                })()}
             </div>
             {!entry.isSelf && (
               <Button

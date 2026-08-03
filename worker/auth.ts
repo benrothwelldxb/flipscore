@@ -6,6 +6,7 @@ import {
   sha256Hex,
   timingSafeEqual,
 } from './crypto'
+import { fixedWindowAllow } from './ratelimit'
 import type { Env } from './worker.d'
 
 // Passwordless email one-time-code auth. Routes are mounted under /api/auth/*:
@@ -98,50 +99,14 @@ function isLocalHost(url: URL): boolean {
   )
 }
 
-/**
- * Fixed-window per-IP rate limit for a hashed key. Returns whether the request
- * is allowed and, if not, roughly how many seconds until the window resets.
- * Read-modify-write is intentionally approximate — for an abuse throttle
- * "about N per window" is enough, and it stays testable with the fake D1.
- */
+/** Fixed-window per-IP rate limit for request-code, keyed by a hashed IP. */
 async function checkIpRateLimit(
   env: Env,
   ip: string,
   now: number,
 ): Promise<{ ok: boolean; retryAfter: number }> {
   const key = `reqcode:${await sha256Hex(ip)}`
-  // Opportunistic cleanup of long-expired rows so the table can't grow forever.
-  await env.DB.prepare(`DELETE FROM rate_limits WHERE window_start < ?1`)
-    .bind(now - IP_WINDOW_MS)
-    .run()
-
-  const row = await env.DB.prepare(
-    `SELECT window_start, count FROM rate_limits WHERE key = ?1`,
-  )
-    .bind(key)
-    .first<{ window_start: number; count: number }>()
-
-  if (!row || now - row.window_start >= IP_WINDOW_MS) {
-    await env.DB.prepare(
-      `INSERT INTO rate_limits (key, window_start, count) VALUES (?1, ?2, 1)
-       ON CONFLICT(key) DO UPDATE SET window_start = ?2, count = 1`,
-    )
-      .bind(key, now)
-      .run()
-    return { ok: true, retryAfter: 0 }
-  }
-
-  if (row.count >= IP_WINDOW_LIMIT) {
-    const retryAfter = Math.ceil((row.window_start + IP_WINDOW_MS - now) / 1000)
-    return { ok: false, retryAfter }
-  }
-
-  await env.DB.prepare(
-    `UPDATE rate_limits SET count = count + 1 WHERE key = ?1`,
-  )
-    .bind(key)
-    .run()
-  return { ok: true, retryAfter: 0 }
+  return fixedWindowAllow(env, key, IP_WINDOW_MS, IP_WINDOW_LIMIT, now)
 }
 
 /** The best-effort client IP for throttling (Cloudflare sets CF-Connecting-IP). */

@@ -1,4 +1,5 @@
 import { accountForRequest } from './auth'
+import { fixedWindowAllow } from './ratelimit'
 import type { Env } from './worker.d'
 
 // Friends & leaderboards. Routes under /api/social/* (all Bearer-authenticated):
@@ -15,6 +16,9 @@ import type { Env } from './worker.d'
 // Friendly code alphabet: no 0/1/I/L/O/U to avoid misreads.
 const CODE_ALPHABET = '23456789ABCDEFGHJKMNPQRSTVWXYZ'
 const CODE_LENGTH = 8
+const REQUEST_TTL_MS = 90 * 24 * 60 * 60 * 1000 // prune requests after 90 days
+const ADD_WINDOW_MS = 60 * 60 * 1000 // per-account: at most…
+const ADD_LIMIT = 30 // …30 friend-add attempts per hour
 
 interface Identity {
   accountId: string
@@ -27,6 +31,16 @@ function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: { 'content-type': 'application/json; charset=utf-8' },
+  })
+}
+
+function rateLimited(retryAfter: number): Response {
+  return new Response(JSON.stringify({ error: 'rate_limited', retryAfter }), {
+    status: 429,
+    headers: {
+      'content-type': 'application/json; charset=utf-8',
+      'retry-after': String(Math.max(0, retryAfter)),
+    },
   })
 }
 
@@ -181,12 +195,104 @@ async function handleGetFriends(
   return json({ friends })
 }
 
+/**
+ * Atomically befriend two accounts and clear any pending requests between them.
+ * A single batch so a failure can't leave a destroyed request with no friendship.
+ */
+async function acceptRequestPair(
+  env: Env,
+  a: string,
+  b: string,
+  now: number,
+): Promise<void> {
+  await env.DB.batch([
+    env.DB.prepare(
+      `INSERT OR IGNORE INTO friendships (account_id, friend_id, created_at)
+       VALUES (?1, ?2, ?3)`,
+    ).bind(a, b, now),
+    env.DB.prepare(
+      `INSERT OR IGNORE INTO friendships (account_id, friend_id, created_at)
+       VALUES (?1, ?2, ?3)`,
+    ).bind(b, a, now),
+    env.DB.prepare(
+      `DELETE FROM friend_requests WHERE from_account = ?1 AND to_account = ?2`,
+    ).bind(a, b),
+    env.DB.prepare(
+      `DELETE FROM friend_requests WHERE from_account = ?1 AND to_account = ?2`,
+    ).bind(b, a),
+  ])
+}
+
+/** Delete any pending request rows between two accounts (either direction). */
+async function clearRequests(env: Env, a: string, b: string): Promise<void> {
+  await env.DB.prepare(
+    `DELETE FROM friend_requests WHERE from_account = ?1 AND to_account = ?2`,
+  )
+    .bind(a, b)
+    .run()
+  await env.DB.prepare(
+    `DELETE FROM friend_requests WHERE from_account = ?1 AND to_account = ?2`,
+  )
+    .bind(b, a)
+    .run()
+}
+
+async function areFriends(env: Env, a: string, b: string): Promise<boolean> {
+  const row = await env.DB.prepare(
+    `SELECT 1 AS one FROM friendships WHERE account_id = ?1 AND friend_id = ?2`,
+  )
+    .bind(a, b)
+    .first<{ one: number }>()
+  return row !== null
+}
+
+/** { accountId, displayName, stats } for an account's public identity. */
+async function friendPayload(
+  env: Env,
+  accountId: string,
+): Promise<{ accountId: string; displayName: string; stats: unknown }> {
+  const identity = await env.DB.prepare(
+    `SELECT display_name, stats FROM identities WHERE account_id = ?1`,
+  )
+    .bind(accountId)
+    .first<{ display_name: string; stats: string }>()
+  return {
+    accountId,
+    displayName: identity?.display_name ?? '',
+    stats: identity ? safeParse(identity.stats) : {},
+  }
+}
+
+/** { accountId, displayName } only — for request lists (no stats needed). */
+async function namePayload(
+  env: Env,
+  accountId: string,
+): Promise<{ accountId: string; displayName: string }> {
+  const identity = await env.DB.prepare(
+    `SELECT display_name, stats FROM identities WHERE account_id = ?1`,
+  )
+    .bind(accountId)
+    .first<{ display_name: string; stats: string }>()
+  return { accountId, displayName: identity?.display_name ?? '' }
+}
+
 async function handleAddFriend(
   request: Request,
   env: Env,
   account: { id: string; email: string },
   now: number,
 ): Promise<Response> {
+  // Per-account throttle: stops using this endpoint as a friend-code oracle
+  // (200 vs 404) and caps request spam. Counts every attempt, valid or not.
+  const limit = await fixedWindowAllow(
+    env,
+    `friendadd:${account.id}`,
+    ADD_WINDOW_MS,
+    ADD_LIMIT,
+    now,
+  )
+  if (!limit.ok) return rateLimited(limit.retryAfter)
+
   // Ensure the caller has an identity (so they're addable back).
   await ensureIdentity(env, account, now)
 
@@ -201,27 +307,109 @@ async function handleAddFriend(
   if (!target) return json({ error: 'unknown_code' }, 404)
   if (target.account_id === account.id) return json({ error: 'self_code' }, 400)
 
-  // Mutual: insert both directions, ignoring an existing friendship.
+  const friend = {
+    accountId: target.account_id,
+    displayName: target.display_name,
+    stats: safeParse(target.stats),
+  }
+
+  // Already friends → idempotent no-op.
+  if (await areFriends(env, account.id, target.account_id)) {
+    return json({ status: 'friends', friend })
+  }
+
+  // A pending request the other way means they already asked us — auto-accept.
+  const reverse = await env.DB.prepare(
+    `SELECT 1 AS one FROM friend_requests WHERE from_account = ?1 AND to_account = ?2`,
+  )
+    .bind(target.account_id, account.id)
+    .first<{ one: number }>()
+  if (reverse) {
+    await acceptRequestPair(env, account.id, target.account_id, now)
+    return json({ status: 'accepted', friend })
+  }
+
+  // Otherwise record a pending request for them to accept.
   await env.DB.prepare(
-    `INSERT OR IGNORE INTO friendships (account_id, friend_id, created_at)
+    `INSERT OR IGNORE INTO friend_requests (from_account, to_account, created_at)
      VALUES (?1, ?2, ?3)`,
   )
     .bind(account.id, target.account_id, now)
     .run()
-  await env.DB.prepare(
-    `INSERT OR IGNORE INTO friendships (account_id, friend_id, created_at)
-     VALUES (?1, ?2, ?3)`,
-  )
-    .bind(target.account_id, account.id, now)
+  return json({
+    status: 'pending',
+    to: { accountId: target.account_id, displayName: target.display_name },
+  })
+}
+
+async function handleRequests(
+  env: Env,
+  account: { id: string },
+  now: number,
+): Promise<Response> {
+  // Opportunistic prune of stale requests (no scheduled job needed).
+  await env.DB.prepare(`DELETE FROM friend_requests WHERE created_at < ?1`)
+    .bind(now - REQUEST_TTL_MS)
     .run()
 
-  return json({
-    friend: {
-      accountId: target.account_id,
-      displayName: target.display_name,
-      stats: safeParse(target.stats),
-    },
-  })
+  const incomingRows = await env.DB.prepare(
+    `SELECT from_account FROM friend_requests WHERE to_account = ?1`,
+  )
+    .bind(account.id)
+    .all<{ from_account: string }>()
+  const outgoingRows = await env.DB.prepare(
+    `SELECT to_account FROM friend_requests WHERE from_account = ?1`,
+  )
+    .bind(account.id)
+    .all<{ to_account: string }>()
+
+  const incoming = []
+  for (const row of incomingRows.results) {
+    incoming.push(await namePayload(env, row.from_account))
+  }
+  const outgoing = []
+  for (const row of outgoingRows.results) {
+    outgoing.push(await namePayload(env, row.to_account))
+  }
+  return json({ incoming, outgoing })
+}
+
+async function handleRespond(
+  request: Request,
+  env: Env,
+  account: { id: string; email: string },
+  now: number,
+): Promise<Response> {
+  const body = await parseJson(request)
+  const fromAccountId = body.fromAccountId
+  const action = body.action
+  if (typeof fromAccountId !== 'string' || !fromAccountId) {
+    return json({ error: 'invalid_input' }, 400)
+  }
+  if (action !== 'accept' && action !== 'reject') {
+    return json({ error: 'invalid_input' }, 400)
+  }
+
+  // The request must actually be addressed to the caller.
+  const exists = await env.DB.prepare(
+    `SELECT 1 AS one FROM friend_requests WHERE from_account = ?1 AND to_account = ?2`,
+  )
+    .bind(fromAccountId, account.id)
+    .first<{ one: number }>()
+  if (!exists) return json({ error: 'no_request' }, 404)
+
+  if (action === 'reject') {
+    await env.DB.prepare(
+      `DELETE FROM friend_requests WHERE from_account = ?1 AND to_account = ?2`,
+    )
+      .bind(fromAccountId, account.id)
+      .run()
+    return json({ ok: true })
+  }
+
+  await ensureIdentity(env, account, now)
+  await acceptRequestPair(env, account.id, fromAccountId, now)
+  return json({ friend: await friendPayload(env, fromAccountId) })
 }
 
 async function handleRemoveFriend(
@@ -243,6 +431,8 @@ async function handleRemoveFriend(
   )
     .bind(friendId, account.id)
     .run()
+  // Also drop any lingering pending request between the pair.
+  await clearRequests(env, account.id, friendId)
 
   return json({ ok: true })
 }
@@ -265,8 +455,12 @@ export async function handleSocial(
     return handleSaveIdentity(request, env, account, now)
   if (route === 'friends' && method === 'GET')
     return handleGetFriends(env, account)
+  if (route === 'friends/requests' && method === 'GET')
+    return handleRequests(env, account, now)
   if (route === 'friends/add' && method === 'POST')
     return handleAddFriend(request, env, account, now)
+  if (route === 'friends/respond' && method === 'POST')
+    return handleRespond(request, env, account, now)
   if (route === 'friends/remove' && method === 'POST')
     return handleRemoveFriend(request, env, account)
 

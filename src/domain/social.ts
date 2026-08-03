@@ -1,4 +1,5 @@
 import { normalizeName } from './analysis'
+import { computeHeadToHead } from './history'
 import { computeLegacyCard, type LegacyProfile } from './legacy'
 import { computeStats } from './stats'
 import type { Game, GameNight } from './types'
@@ -116,6 +117,34 @@ export function rankLeaderboard(
     if (y.gamesPlayed !== x.gamesPlayed) return y.gamesPlayed - x.gamesPlayed
     return a.displayName.localeCompare(b.displayName)
   })
+}
+
+/** Your win/loss record against a friend, computed from your own local games. */
+export interface FriendH2H {
+  /** Shared finished games. */
+  games: number
+  /** Times you finished ahead, and times they did. */
+  mine: number
+  theirs: number
+}
+
+/**
+ * Head-to-head between "you" and a friend, derived from the games on this
+ * device (names matched case-insensitively). Returns null when there's no
+ * identity, no friend name, or no shared game to compare.
+ */
+export function headToHeadForFriend(
+  myName: string | null,
+  friendName: string,
+  games: Game[],
+): FriendH2H | null {
+  const mine = myName?.trim()
+  const theirs = friendName.trim()
+  if (!mine || !theirs) return null
+  if (normalizeName(mine) === normalizeName(theirs)) return null
+  const h = computeHeadToHead(games, mine, theirs)
+  if (h.games === 0) return null
+  return { games: h.games, mine: h.aWins, theirs: h.bWins }
 }
 
 /** Distinct player names in the library, most-played first — the claim picker. */

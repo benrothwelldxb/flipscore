@@ -53,12 +53,40 @@ function installFakeApi(initial?: Partial<Identity>) {
     if (path === 'friends' && method === 'GET') {
       return Promise.resolve(json({ friends }))
     }
+    if (path === 'friends/requests' && method === 'GET') {
+      return Promise.resolve(
+        json({
+          incoming: [{ accountId: 'r1', displayName: 'Ray' }],
+          outgoing: [],
+        }),
+      )
+    }
     if (path === 'friends/add' && method === 'POST') {
       if (body.code === 'BADCODE9')
         return Promise.resolve(json({ error: 'unknown_code' }, 404))
+      if (body.code === 'MUTUAL')
+        return Promise.resolve(
+          json({
+            status: 'accepted',
+            friend: { accountId: 'r1', displayName: 'Ray', stats: {} },
+          }),
+        )
       return Promise.resolve(
-        json({ friend: { accountId: 'f2', displayName: 'Cy', stats: {} } }),
+        json({ status: 'pending', to: { accountId: 'f2', displayName: 'Cy' } }),
       )
+    }
+    if (path === 'friends/respond' && method === 'POST') {
+      if (body.action === 'accept')
+        return Promise.resolve(
+          json({
+            friend: {
+              accountId: body.fromAccountId,
+              displayName: 'Ray',
+              stats: {},
+            },
+          }),
+        )
+      return Promise.resolve(json({ ok: true }))
     }
     if (path === 'friends/remove' && method === 'POST') {
       return Promise.resolve(json({ ok: true }))
@@ -78,6 +106,8 @@ function reset() {
   useSocialStore.setState({
     identity: null,
     friends: [],
+    incoming: [],
+    outgoing: [],
     status: 'idle',
     error: null,
   })
@@ -94,13 +124,14 @@ describe('social store', () => {
     expect(useSocialStore.getState().identity).toBeNull()
   })
 
-  it('loads identity and friends when signed in', async () => {
+  it('loads identity, friends and requests when signed in', async () => {
     useAccountStore.setState({ token: 'tok', user: { id: 'me', email: 'e' } })
     installFakeApi()
     await useSocialStore.getState().fetchAll()
     const state = useSocialStore.getState()
     expect(state.identity?.friendCode).toBe('ABCD2345')
     expect(state.friends.map((f) => f.accountId)).toEqual(['f1'])
+    expect(state.incoming.map((r) => r.accountId)).toEqual(['r1'])
     expect(state.status).toBe('idle')
   })
 
@@ -122,16 +153,60 @@ describe('social store', () => {
     expect(fetchMock).not.toHaveBeenCalled()
   })
 
-  it('adds and removes friends', async () => {
+  it('sending a request adds an outgoing pending entry', async () => {
+    useAccountStore.setState({ token: 'tok', user: { id: 'me', email: 'e' } })
+    installFakeApi()
+    const status = await useSocialStore.getState().addFriend('GOODCODE')
+    expect(status).toBe('pending')
+    expect(
+      useSocialStore.getState().outgoing.map((o) => o.accountId),
+    ).toContain('f2')
+    // Not a friend yet.
+    expect(
+      useSocialStore.getState().friends.map((f) => f.accountId),
+    ).not.toContain('f2')
+  })
+
+  it('an auto-accepted add becomes a friend and clears pending rows', async () => {
+    useAccountStore.setState({ token: 'tok', user: { id: 'me', email: 'e' } })
+    installFakeApi()
+    // r1 had an incoming request to us; adding their code auto-accepts.
+    useSocialStore.setState({
+      incoming: [{ accountId: 'r1', displayName: 'Ray' }],
+      outgoing: [{ accountId: 'r1', displayName: 'Ray' }],
+    })
+    const status = await useSocialStore.getState().addFriend('MUTUAL')
+    expect(status).toBe('accepted')
+    const s = useSocialStore.getState()
+    expect(s.friends.map((f) => f.accountId)).toContain('r1')
+    expect(s.incoming.map((r) => r.accountId)).not.toContain('r1')
+    expect(s.outgoing.map((o) => o.accountId)).not.toContain('r1')
+  })
+
+  it('accepting an incoming request makes a friend and clears it', async () => {
+    useAccountStore.setState({ token: 'tok', user: { id: 'me', email: 'e' } })
+    installFakeApi()
+    await useSocialStore.getState().fetchAll() // loads incoming r1
+    await useSocialStore.getState().acceptRequest('r1')
+    const s = useSocialStore.getState()
+    expect(s.friends.map((f) => f.accountId)).toContain('r1')
+    expect(s.incoming.map((r) => r.accountId)).not.toContain('r1')
+  })
+
+  it('rejecting an incoming request just clears it', async () => {
     useAccountStore.setState({ token: 'tok', user: { id: 'me', email: 'e' } })
     installFakeApi()
     await useSocialStore.getState().fetchAll()
+    await useSocialStore.getState().rejectRequest('r1')
+    const s = useSocialStore.getState()
+    expect(s.incoming.map((r) => r.accountId)).not.toContain('r1')
+    expect(s.friends.map((f) => f.accountId)).not.toContain('r1')
+  })
 
-    await useSocialStore.getState().addFriend('GOODCODE')
-    expect(useSocialStore.getState().friends.map((f) => f.accountId)).toContain(
-      'f2',
-    )
-
+  it('removes a friend', async () => {
+    useAccountStore.setState({ token: 'tok', user: { id: 'me', email: 'e' } })
+    installFakeApi()
+    await useSocialStore.getState().fetchAll()
     await useSocialStore.getState().removeFriend('f1')
     expect(
       useSocialStore.getState().friends.map((f) => f.accountId),

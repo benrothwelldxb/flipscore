@@ -114,6 +114,9 @@ async function handleDelete(
     env.DB.prepare(
       `DELETE FROM friendships WHERE account_id = ?1 OR friend_id = ?1`,
     ).bind(account.id),
+    env.DB.prepare(
+      `DELETE FROM friend_requests WHERE from_account = ?1 OR to_account = ?1`,
+    ).bind(account.id),
     env.DB.prepare(`DELETE FROM identities WHERE account_id = ?1`).bind(
       account.id,
     ),

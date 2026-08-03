@@ -19,9 +19,17 @@ class FakeDB {
   sessions = new Map<string, { account_id: string; expires_at: number }>()
   identities = new Map<string, IdentityRow>() // by account_id
   friendships = new Set<string>() // `${a}|${b}`
+  friendRequests = new Map<string, number>() // `${from}|${to}` -> created_at
+  rateLimits = new Map<string, { window_start: number; count: number }>()
 
   prepare(query: string): FakeStmt {
     return new FakeStmt(this, query.replace(/\s+/g, ' ').trim())
+  }
+
+  async batch(statements: FakeStmt[]): Promise<unknown[]> {
+    const out: unknown[] = []
+    for (const s of statements) out.push(await s.run())
+    return out
   }
 
   identityByCode(code: string): { accountId: string; row: IdentityRow } | null {
@@ -94,6 +102,23 @@ class FakeStmt {
           : null,
       )
     }
+    if (sql.includes('1 AS one FROM friendships')) {
+      const has = db.friendships.has(
+        `${args[0] as string}|${args[1] as string}`,
+      )
+      return Promise.resolve(has ? ({ one: 1 } as T) : null)
+    }
+    if (sql.includes('1 AS one FROM friend_requests')) {
+      const has = db.friendRequests.has(
+        `${args[0] as string}|${args[1] as string}`,
+      )
+      return Promise.resolve(has ? ({ one: 1 } as T) : null)
+    }
+    if (sql.includes('SELECT window_start, count FROM rate_limits')) {
+      return Promise.resolve(
+        (db.rateLimits.get(args[0] as string) ?? null) as T,
+      )
+    }
     return Promise.resolve(null)
   }
 
@@ -115,6 +140,31 @@ class FakeStmt {
       db.friendships.add(`${args[0] as string}|${args[1] as string}`)
     } else if (sql.includes('DELETE FROM friendships')) {
       db.friendships.delete(`${args[0] as string}|${args[1] as string}`)
+    } else if (sql.includes('INSERT OR IGNORE INTO friend_requests')) {
+      const key = `${args[0] as string}|${args[1] as string}`
+      if (!db.friendRequests.has(key)) {
+        db.friendRequests.set(key, args[2] as number)
+      }
+    } else if (sql.includes('DELETE FROM friend_requests WHERE created_at')) {
+      const cutoff = args[0] as number
+      for (const [key, created] of db.friendRequests) {
+        if (created < cutoff) db.friendRequests.delete(key)
+      }
+    } else if (sql.includes('DELETE FROM friend_requests')) {
+      db.friendRequests.delete(`${args[0] as string}|${args[1] as string}`)
+    } else if (sql.includes('DELETE FROM rate_limits WHERE window_start')) {
+      const cutoff = args[0] as number
+      for (const [key, row] of db.rateLimits) {
+        if (row.window_start < cutoff) db.rateLimits.delete(key)
+      }
+    } else if (sql.includes('INSERT INTO rate_limits')) {
+      db.rateLimits.set(args[0] as string, {
+        window_start: args[1] as number,
+        count: 1,
+      })
+    } else if (sql.includes('UPDATE rate_limits SET count')) {
+      const row = db.rateLimits.get(args[0] as string)
+      if (row) row.count += 1
     }
     return Promise.resolve({ results: [], success: true, meta: {} })
   }
@@ -130,6 +180,32 @@ class FakeStmt {
       const results = [...db.friendships]
         .filter((k) => k.startsWith(`${me}|`))
         .map((k) => ({ friend_id: k.split('|')[1] }))
+      return Promise.resolve({
+        results: results as T[],
+        success: true,
+        meta: {},
+      })
+    }
+    if (
+      sql.includes('SELECT from_account FROM friend_requests WHERE to_account')
+    ) {
+      const me = args[0] as string
+      const results = [...db.friendRequests.keys()]
+        .filter((k) => k.endsWith(`|${me}`))
+        .map((k) => ({ from_account: k.split('|')[0] }))
+      return Promise.resolve({
+        results: results as T[],
+        success: true,
+        meta: {},
+      })
+    }
+    if (
+      sql.includes('SELECT to_account FROM friend_requests WHERE from_account')
+    ) {
+      const me = args[0] as string
+      const results = [...db.friendRequests.keys()]
+        .filter((k) => k.startsWith(`${me}|`))
+        .map((k) => ({ to_account: k.split('|')[1] }))
       return Promise.resolve({
         results: results as T[],
         success: true,
@@ -219,34 +295,103 @@ describe('social handler', () => {
     expect(identity.stats.gamesWon).toBe(5)
   })
 
-  it('adds a friend by code, mutually', async () => {
+  async function codeOf(env: Env, token: string): Promise<string> {
+    const { identity } = (await (
+      await handleSocial(req('identity', token), env, NOW)
+    ).json()) as { identity: { friendCode: string } }
+    return identity.friendCode
+  }
+
+  async function friendIds(env: Env, token: string): Promise<string[]> {
+    const { friends } = (await (
+      await handleSocial(req('friends', token), env, NOW)
+    ).json()) as { friends: { accountId: string }[] }
+    return friends.map((f) => f.accountId)
+  }
+
+  it('sends a request, then the recipient accepts to become friends', async () => {
     const db = new FakeDB()
     await seed(db, 'acct_a', 'tokA')
     await seed(db, 'acct_b', 'tokB')
     const env = makeEnv(db)
+    const bCode = await codeOf(env, 'tokB')
 
-    // Both need identities; capture B's code.
-    await handleSocial(req('identity', 'tokA'), env, NOW)
-    const bId = (await (
-      await handleSocial(req('identity', 'tokB'), env, NOW)
-    ).json()) as { identity: { friendCode: string } }
-
+    // A sends a request → pending, not yet friends.
     const add = await handleSocial(
-      req('friends/add', 'tokA', 'POST', { code: bId.identity.friendCode }),
+      req('friends/add', 'tokA', 'POST', { code: bCode }),
       env,
       NOW,
     )
-    expect(add.status).toBe(200)
+    expect(((await add.json()) as { status: string }).status).toBe('pending')
+    expect(await friendIds(env, 'tokA')).toEqual([])
 
-    // A lists B, and — mutually — B lists A.
-    const aFriends = (await (
-      await handleSocial(req('friends', 'tokA'), env, NOW)
-    ).json()) as { friends: { accountId: string }[] }
-    const bFriends = (await (
-      await handleSocial(req('friends', 'tokB'), env, NOW)
-    ).json()) as { friends: { accountId: string }[] }
-    expect(aFriends.friends.map((f) => f.accountId)).toEqual(['acct_b'])
-    expect(bFriends.friends.map((f) => f.accountId)).toEqual(['acct_a'])
+    // B sees the incoming request.
+    const reqs = (await (
+      await handleSocial(req('friends/requests', 'tokB'), env, NOW)
+    ).json()) as { incoming: { accountId: string }[] }
+    expect(reqs.incoming.map((r) => r.accountId)).toEqual(['acct_a'])
+
+    // B accepts → both are friends.
+    await handleSocial(
+      req('friends/respond', 'tokB', 'POST', {
+        fromAccountId: 'acct_a',
+        action: 'accept',
+      }),
+      env,
+      NOW,
+    )
+    expect(await friendIds(env, 'tokA')).toEqual(['acct_b'])
+    expect(await friendIds(env, 'tokB')).toEqual(['acct_a'])
+  })
+
+  it('auto-accepts when both people request each other', async () => {
+    const db = new FakeDB()
+    await seed(db, 'acct_a', 'tokA')
+    await seed(db, 'acct_b', 'tokB')
+    const env = makeEnv(db)
+    const aCode = await codeOf(env, 'tokA')
+    const bCode = await codeOf(env, 'tokB')
+
+    await handleSocial(
+      req('friends/add', 'tokA', 'POST', { code: bCode }),
+      env,
+      NOW,
+    )
+    const add = await handleSocial(
+      req('friends/add', 'tokB', 'POST', { code: aCode }),
+      env,
+      NOW,
+    )
+    expect(((await add.json()) as { status: string }).status).toBe('accepted')
+    expect(await friendIds(env, 'tokA')).toEqual(['acct_b'])
+    expect(await friendIds(env, 'tokB')).toEqual(['acct_a'])
+  })
+
+  it('rejecting a request leaves no friendship and clears it', async () => {
+    const db = new FakeDB()
+    await seed(db, 'acct_a', 'tokA')
+    await seed(db, 'acct_b', 'tokB')
+    const env = makeEnv(db)
+    const bCode = await codeOf(env, 'tokB')
+
+    await handleSocial(
+      req('friends/add', 'tokA', 'POST', { code: bCode }),
+      env,
+      NOW,
+    )
+    await handleSocial(
+      req('friends/respond', 'tokB', 'POST', {
+        fromAccountId: 'acct_a',
+        action: 'reject',
+      }),
+      env,
+      NOW,
+    )
+    expect(await friendIds(env, 'tokA')).toEqual([])
+    const reqs = (await (
+      await handleSocial(req('friends/requests', 'tokB'), env, NOW)
+    ).json()) as { incoming: unknown[] }
+    expect(reqs.incoming).toHaveLength(0)
   })
 
   it('rejects unknown and self codes, and removes friends', async () => {
@@ -254,12 +399,8 @@ describe('social handler', () => {
     await seed(db, 'acct_a', 'tokA')
     await seed(db, 'acct_b', 'tokB')
     const env = makeEnv(db)
-    const a = (await (
-      await handleSocial(req('identity', 'tokA'), env, NOW)
-    ).json()) as { identity: { friendCode: string } }
-    const b = (await (
-      await handleSocial(req('identity', 'tokB'), env, NOW)
-    ).json()) as { identity: { friendCode: string } }
+    const aCode = await codeOf(env, 'tokA')
+    const bCode = await codeOf(env, 'tokB')
 
     const unknown = await handleSocial(
       req('friends/add', 'tokA', 'POST', { code: 'ZZZZZZZZ' }),
@@ -269,15 +410,23 @@ describe('social handler', () => {
     expect(unknown.status).toBe(404)
 
     const self = await handleSocial(
-      req('friends/add', 'tokA', 'POST', { code: a.identity.friendCode }),
+      req('friends/add', 'tokA', 'POST', { code: aCode }),
       env,
       NOW,
     )
     expect(self.status).toBe(400)
 
-    // Add then remove.
+    // Become friends (request + accept), then remove.
     await handleSocial(
-      req('friends/add', 'tokA', 'POST', { code: b.identity.friendCode }),
+      req('friends/add', 'tokA', 'POST', { code: bCode }),
+      env,
+      NOW,
+    )
+    await handleSocial(
+      req('friends/respond', 'tokB', 'POST', {
+        fromAccountId: 'acct_a',
+        action: 'accept',
+      }),
       env,
       NOW,
     )
@@ -286,13 +435,48 @@ describe('social handler', () => {
       env,
       NOW,
     )
-    const aFriends = (await (
-      await handleSocial(req('friends', 'tokA'), env, NOW)
-    ).json()) as { friends: unknown[] }
-    const bFriends = (await (
-      await handleSocial(req('friends', 'tokB'), env, NOW)
-    ).json()) as { friends: unknown[] }
-    expect(aFriends.friends).toHaveLength(0)
-    expect(bFriends.friends).toHaveLength(0)
+    expect(await friendIds(env, 'tokA')).toHaveLength(0)
+    expect(await friendIds(env, 'tokB')).toHaveLength(0)
+  })
+
+  it('rate-limits friend-add attempts per account', async () => {
+    const db = new FakeDB()
+    await seed(db, 'acct_a', 'tokA')
+    const env = makeEnv(db)
+    await handleSocial(req('identity', 'tokA'), env, NOW)
+
+    // 30 attempts allowed (all 404 unknown codes), the 31st is throttled.
+    for (let i = 0; i < 30; i++) {
+      const r = await handleSocial(
+        req('friends/add', 'tokA', 'POST', { code: 'ZZZZZZZZ' }),
+        env,
+        NOW,
+      )
+      expect(r.status).toBe(404)
+    }
+    const blocked = await handleSocial(
+      req('friends/add', 'tokA', 'POST', { code: 'ZZZZZZZZ' }),
+      env,
+      NOW,
+    )
+    expect(blocked.status).toBe(429)
+  })
+
+  it('the requests prune keeps fresh requests', async () => {
+    const db = new FakeDB()
+    await seed(db, 'acct_a', 'tokA')
+    await seed(db, 'acct_b', 'tokB')
+    const env = makeEnv(db)
+    const bCode = await codeOf(env, 'tokB')
+    await handleSocial(
+      req('friends/add', 'tokA', 'POST', { code: bCode }),
+      env,
+      NOW,
+    )
+    // Polling requests runs the TTL prune; a request created at NOW survives.
+    const reqs = (await (
+      await handleSocial(req('friends/requests', 'tokB'), env, NOW)
+    ).json()) as { incoming: unknown[] }
+    expect(reqs.incoming).toHaveLength(1)
   })
 })

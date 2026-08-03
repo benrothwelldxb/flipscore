@@ -16,6 +16,17 @@ export interface FriendIdentity {
   stats: unknown
 }
 
+/** A person on the other end of a pending friend request. */
+export interface FriendRequestPeer {
+  accountId: string
+  displayName: string
+}
+
+export type AddFriendResult =
+  | { status: 'pending'; to: FriendRequestPeer }
+  | { status: 'accepted'; friend: FriendIdentity }
+  | { status: 'friends'; friend: FriendIdentity }
+
 export function getIdentity(token: string): Promise<{ identity: MyIdentity }> {
   return apiRequest('/api/social/identity', { token })
 }
@@ -37,14 +48,34 @@ export function getFriends(
   return apiRequest('/api/social/friends', { token })
 }
 
+/** Send a friend request by code (auto-accepts if they already asked you). */
 export function addFriend(
   token: string,
   code: string,
-): Promise<{ friend: FriendIdentity }> {
+): Promise<AddFriendResult> {
   return apiRequest('/api/social/friends/add', {
     method: 'POST',
     token,
     body: JSON.stringify({ code }),
+  })
+}
+
+export function getRequests(
+  token: string,
+): Promise<{ incoming: FriendRequestPeer[]; outgoing: FriendRequestPeer[] }> {
+  return apiRequest('/api/social/friends/requests', { token })
+}
+
+/** Accept or reject an incoming request from `fromAccountId`. */
+export function respondRequest(
+  token: string,
+  fromAccountId: string,
+  action: 'accept' | 'reject',
+): Promise<{ friend?: FriendIdentity; ok?: true }> {
+  return apiRequest('/api/social/friends/respond', {
+    method: 'POST',
+    token,
+    body: JSON.stringify({ fromAccountId, action }),
   })
 }
 

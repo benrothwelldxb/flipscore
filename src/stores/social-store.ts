@@ -6,7 +6,12 @@ import { STICKERS } from '@/domain/stickers/catalog'
 import { computeAchievementMetrics } from '@/domain/stickers/metrics'
 import { AccountApiError } from '@/net/account-api'
 import * as api from '@/net/social-api'
-import type { FriendIdentity, MyIdentity } from '@/net/social-api'
+import type {
+  AddFriendResult,
+  FriendIdentity,
+  FriendRequestPeer,
+  MyIdentity,
+} from '@/net/social-api'
 import { useAccountStore } from '@/stores/account-store'
 import { useGameStore } from '@/stores/game-store'
 import { useIdentityStore } from '@/stores/identity-store'
@@ -24,10 +29,14 @@ type SocialStatus = 'idle' | 'loading' | 'error'
 interface SocialState {
   identity: MyIdentity | null
   friends: FriendIdentity[]
+  /** Pending requests others sent to you (awaiting accept/reject). */
+  incoming: FriendRequestPeer[]
+  /** Pending requests you've sent that haven't been accepted yet. */
+  outgoing: FriendRequestPeer[]
   status: SocialStatus
   error: string | null
 
-  /** Load identity + friends, then publish fresh stats (best effort). */
+  /** Load identity + friends + requests, then publish fresh stats. */
   fetchAll: () => Promise<void>
   /**
    * Set who "you" are — the single place identity is chosen. Updates the local
@@ -38,8 +47,15 @@ interface SocialState {
   claimName: (name: string) => Promise<void>
   /** Recompute and publish the claimed identity's stats snapshot. */
   publishStats: () => Promise<void>
-  /** Add a friend by their code (throws AccountApiError on a bad code). */
-  addFriend: (code: string) => Promise<void>
+  /**
+   * Send a friend request by code. Resolves to the outcome: 'pending' (they
+   * must accept), or 'accepted'/'friends' (already mutual). Throws on a bad code.
+   */
+  addFriend: (code: string) => Promise<AddFriendResult['status']>
+  /** Accept an incoming request from `fromAccountId`. */
+  acceptRequest: (fromAccountId: string) => Promise<void>
+  /** Reject an incoming request from `fromAccountId`. */
+  rejectRequest: (fromAccountId: string) => Promise<void>
   /** Remove a friend (both directions). */
   removeFriend: (friendId: string) => Promise<void>
 }
@@ -47,22 +63,38 @@ interface SocialState {
 export const useSocialStore = create<SocialState>()((set, get) => ({
   identity: null,
   friends: [],
+  incoming: [],
+  outgoing: [],
   status: 'idle',
   error: null,
 
   async fetchAll() {
     const token = useAccountStore.getState().token
     if (!token) {
-      set({ identity: null, friends: [], status: 'idle', error: null })
+      set({
+        identity: null,
+        friends: [],
+        incoming: [],
+        outgoing: [],
+        status: 'idle',
+        error: null,
+      })
       return
     }
     set({ status: 'loading', error: null })
     try {
-      const [{ identity }, { friends }] = await Promise.all([
+      const [{ identity }, { friends }, requests] = await Promise.all([
         api.getIdentity(token),
         api.getFriends(token),
+        api.getRequests(token),
       ])
-      set({ identity, friends, status: 'idle' })
+      set({
+        identity,
+        friends,
+        incoming: requests.incoming,
+        outgoing: requests.outgoing,
+        status: 'idle',
+      })
       // Keep the leaderboard name in step with the local "you" identity: an
       // explicit local choice wins over the server's default display name.
       const local = useIdentityStore.getState().name
@@ -123,12 +155,48 @@ export const useSocialStore = create<SocialState>()((set, get) => ({
   async addFriend(code) {
     const token = useAccountStore.getState().token
     if (!token) throw new AccountApiError('unauthorized')
-    const { friend } = await api.addFriend(token, code)
+    const result = await api.addFriend(token, code)
+    if (result.status === 'pending') {
+      set((s) => ({
+        outgoing: [
+          ...s.outgoing.filter((o) => o.accountId !== result.to.accountId),
+          result.to,
+        ],
+      }))
+    } else {
+      // Mutual/already-friends: add to friends and drop any pending rows for
+      // them (e.g. their incoming request that we just auto-accepted).
+      const friend = result.friend
+      set((s) => ({
+        friends: [
+          ...s.friends.filter((f) => f.accountId !== friend.accountId),
+          friend,
+        ],
+        incoming: s.incoming.filter((r) => r.accountId !== friend.accountId),
+        outgoing: s.outgoing.filter((o) => o.accountId !== friend.accountId),
+      }))
+    }
+    return result.status
+  },
+
+  async acceptRequest(fromAccountId) {
+    const token = useAccountStore.getState().token
+    if (!token) return
+    const { friend } = await api.respondRequest(token, fromAccountId, 'accept')
     set((s) => ({
-      friends: [
-        ...s.friends.filter((f) => f.accountId !== friend.accountId),
-        friend,
-      ],
+      incoming: s.incoming.filter((r) => r.accountId !== fromAccountId),
+      friends: friend
+        ? [...s.friends.filter((f) => f.accountId !== friend.accountId), friend]
+        : s.friends,
+    }))
+  },
+
+  async rejectRequest(fromAccountId) {
+    const token = useAccountStore.getState().token
+    if (!token) return
+    await api.respondRequest(token, fromAccountId, 'reject')
+    set((s) => ({
+      incoming: s.incoming.filter((r) => r.accountId !== fromAccountId),
     }))
   },
 
@@ -144,4 +212,6 @@ export const useSocialStore = create<SocialState>()((set, get) => ({
 
 export const useSocialIdentity = () => useSocialStore((s) => s.identity)
 export const useFriends = () => useSocialStore((s) => s.friends)
+export const useIncomingRequests = () => useSocialStore((s) => s.incoming)
+export const useOutgoingRequests = () => useSocialStore((s) => s.outgoing)
 export const useSocialStatus = () => useSocialStore((s) => s.status)

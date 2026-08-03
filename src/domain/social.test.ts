@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   computeIdentityStats,
   emptyIdentityStats,
+  headToHeadForFriend,
   parseIdentityStats,
   playerNameOptions,
   rankLeaderboard,
@@ -109,6 +110,30 @@ describe('rankLeaderboard', () => {
       entry('Cy', 5, 0.9),
     ])
     expect(ranked.map((e) => e.displayName)).toEqual(['Cy', 'Ada', 'Bo'])
+  })
+})
+
+describe('headToHeadForFriend', () => {
+  const games = [
+    mkGame('g1', { Ada: 200, Bo: 10 }, 'Ada'),
+    mkGame('g2', { Ada: 200, Bo: 10 }, 'Ada'),
+    mkGame('g3', { Ada: 10, Bo: 200 }, 'Bo'),
+  ]
+
+  it('reports your record against a friend from shared games', () => {
+    const h2h = headToHeadForFriend('Ada', 'Bo', games)
+    expect(h2h).toEqual({ games: 3, mine: 2, theirs: 1 })
+  })
+
+  it('matches names case-insensitively', () => {
+    expect(headToHeadForFriend('ada', 'BO', games)?.mine).toBe(2)
+  })
+
+  it('is null without an identity, a name, or any shared game', () => {
+    expect(headToHeadForFriend(null, 'Bo', games)).toBeNull()
+    expect(headToHeadForFriend('Ada', '', games)).toBeNull()
+    expect(headToHeadForFriend('Ada', 'Nobody', games)).toBeNull()
+    expect(headToHeadForFriend('Ada', 'Ada', games)).toBeNull()
   })
 })
 

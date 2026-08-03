@@ -30,6 +30,7 @@ class FakeDB {
   >()
   documents: DocRow[] = []
   friendships = new Set<string>() // `${a}|${b}`
+  friendRequests = new Set<string>() // `${from}|${to}`
   emailCodes = new Set<string>() // emails with a pending code
 
   prepare(query: string): FakeStmt {
@@ -110,6 +111,13 @@ class FakeStmt {
       for (const k of [...db.friendships]) {
         const [a, b] = k.split('|')
         if (a === id || b === id) db.friendships.delete(k)
+      }
+    } else if (
+      sql.includes('DELETE FROM friend_requests WHERE from_account = ?1 OR')
+    ) {
+      for (const k of [...db.friendRequests]) {
+        const [a, b] = k.split('|')
+        if (a === id || b === id) db.friendRequests.delete(k)
       }
     } else if (sql.includes('DELETE FROM identities WHERE account_id')) {
       db.identities.delete(id)
@@ -209,6 +217,7 @@ describe('account handler', () => {
     await seedAccount(db, 'acct_b', 'tokB')
     db.friendships.add('acct_a|acct_b')
     db.friendships.add('acct_b|acct_a')
+    db.friendRequests.add('acct_a|acct_b')
 
     const res = await handleAccount(
       req('delete', 'tokA', 'POST'),
@@ -226,6 +235,7 @@ describe('account handler', () => {
     ).toBe(false)
     expect(db.emailCodes.has('acct_a@x.io')).toBe(false)
     expect([...db.friendships]).toHaveLength(0) // both directions cleared
+    expect([...db.friendRequests]).toHaveLength(0)
 
     // …but acct_b is untouched.
     expect(db.accounts.has('acct_b')).toBe(true)

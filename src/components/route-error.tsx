@@ -1,6 +1,16 @@
+import { useEffect } from 'react'
 import { isRouteErrorResponse, useRouteError } from 'react-router'
 
 import { Button } from '@/components/ui/button'
+
+/** A failed lazy-route chunk load — usually a stale build after a deploy. */
+function isChunkLoadError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error)
+  // Chrome: "Failed to fetch dynamically imported module"; Firefox/Safari:
+  // "…module script failed". Deliberately NOT a bare "Failed to fetch", which
+  // would match any network TypeError and mask real errors.
+  return /dynamically imported module|module script failed/i.test(message)
+}
 
 /**
  * Rendered by React Router's `errorElement` when a route throws. Without this,
@@ -9,6 +19,20 @@ import { Button } from '@/components/ui/button'
  */
 export function RouteErrorFallback() {
   const error = useRouteError()
+  const chunkError = isChunkLoadError(error)
+
+  // A stale chunk after a deploy fixes itself on reload — do it once per session
+  // automatically (guarded so a genuinely broken deploy can't reload-loop).
+  const willReload = chunkError && !sessionStorage.getItem('fs-chunk-reloaded')
+  useEffect(() => {
+    if (willReload) {
+      sessionStorage.setItem('fs-chunk-reloaded', '1')
+      window.location.reload()
+    }
+  }, [willReload])
+
+  // Don't flash the error UI for the frame before the reload fires.
+  if (willReload) return null
 
   const detail = isRouteErrorResponse(error)
     ? `${error.status} ${error.statusText}`

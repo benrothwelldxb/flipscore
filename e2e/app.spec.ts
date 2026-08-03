@@ -1,5 +1,19 @@
 import { expect, test } from '@playwright/test'
 
+// Mark onboarding as already-seen so the first-run "How to play" dialog and the
+// "which player is you?" prompt don't sit over the UI these tests drive.
+test.beforeEach(async ({ page }) => {
+  await page.addInitScript(() => {
+    window.localStorage.setItem(
+      'flipscore-prefs',
+      JSON.stringify({
+        state: { introSeen: true, identityPromptSeen: true },
+        version: 4,
+      }),
+    )
+  })
+})
+
 test.describe('FlipScore shell', () => {
   test('renders the home launcher', async ({ page }) => {
     await page.goto('/')
@@ -123,7 +137,7 @@ test.describe('Archive & Stats', () => {
     await page.getByRole('button', { name: 'New game' }).click()
 
     // Low target so a single score finishes the game.
-    const target = page.getByLabel('Target score')
+    const target = page.getByLabel('Target', { exact: true })
     await target.fill('20')
     await target.press('Tab')
     await page.getByRole('button', { name: 'Start game' }).click()

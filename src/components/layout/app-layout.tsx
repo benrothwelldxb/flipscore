@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import { Outlet } from 'react-router'
 
 import { SyncEngine } from '@/components/sync-engine'
@@ -25,7 +26,18 @@ export function AppLayout() {
         id="main"
         className="mx-auto w-full max-w-md flex-1 pt-6 pb-safe pl-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))]"
       >
-        <Outlet />
+        {/* A near-invisible fallback: lazy route chunks resolve in a few ms on
+            a warm cache, so a spinner would only flash. Screen readers still
+            get a status announcement for the slow-network case. */}
+        <Suspense
+          fallback={
+            <div role="status" aria-live="polite" className="min-h-svh">
+              <span className="sr-only">Loading…</span>
+            </div>
+          }
+        >
+          <Outlet />
+        </Suspense>
       </main>
     </div>
   )

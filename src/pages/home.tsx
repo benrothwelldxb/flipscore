@@ -17,6 +17,7 @@ import { Wordmark } from '@/components/brand/wordmark'
 import { EmptyState, LoadingState } from '@/components/common/screen-state'
 import { GameCard } from '@/components/game/game-card'
 import { InstallPrompt } from '@/components/install-prompt'
+import { IdentityPrompt } from '@/components/onboarding/identity-prompt'
 import { Button } from '@/components/ui/button'
 import {
   useActiveGames,
@@ -52,6 +53,7 @@ export function HomePage() {
 
   return (
     <div className="flex flex-col gap-6 py-4">
+      <IdentityPrompt />
       <motion.div
         initial={{ opacity: 0, y: 8 }}
         animate={{ opacity: 1, y: 0 }}

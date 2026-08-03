@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { lazy, Suspense, useState } from 'react'
 import { Camera, Hash, LayoutGrid, type LucideIcon } from 'lucide-react'
 
 import type { Flip7Rules } from '@/domain/flip7'
@@ -11,9 +11,14 @@ import {
 } from '@/stores/prefs-store'
 import { cn } from '@/lib/utils'
 
-import { CameraScorer } from './camera-scorer'
 import { CardBuilder } from './card-builder'
 import { ScoreEntry } from './score-entry'
+
+// The camera scorer pulls in heavy vision code, so it's split into its own
+// chunk and only fetched when the (opt-in) Camera mode is actually selected.
+const CameraScorer = lazy(() =>
+  import('./camera-scorer').then((m) => ({ default: m.CameraScorer })),
+)
 
 interface ScoreEntryPanelProps {
   onSubmit: (value: number, flags?: RoundFlags) => void
@@ -103,11 +108,19 @@ export function ScoreEntryPanel({
         />
       )}
       {active === 'camera' && (
-        <CameraScorer
-          onSubmit={onSubmit}
-          submitLabel={submitLabel}
-          rules={rules}
-        />
+        <Suspense
+          fallback={
+            <p className="text-muted-foreground py-8 text-center text-sm">
+              Loading camera…
+            </p>
+          }
+        >
+          <CameraScorer
+            onSubmit={onSubmit}
+            submitLabel={submitLabel}
+            rules={rules}
+          />
+        </Suspense>
       )}
     </div>
   )

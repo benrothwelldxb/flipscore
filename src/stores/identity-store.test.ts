@@ -3,7 +3,7 @@ import { beforeEach, describe, expect, it } from 'vitest'
 import { resolveIdentityName } from '@/domain/social'
 import type { Game } from '@/domain/types'
 
-import { useIdentityStore } from './identity-store'
+import { shouldPromptIdentity, useIdentityStore } from './identity-store'
 
 function mkGame(
   id: string,
@@ -58,5 +58,32 @@ describe('resolveIdentityName', () => {
 
   it('is null when there is nothing to infer from', () => {
     expect(resolveIdentityName(null, [])).toBeNull()
+  })
+})
+
+describe('shouldPromptIdentity', () => {
+  const finished = [mkGame('g1', { Ada: 200, Bo: 10 }, 'Ada')]
+
+  it('prompts after a first finished game when nothing is chosen or seen', () => {
+    expect(shouldPromptIdentity(finished, null, false)).toBe(true)
+  })
+
+  it('does not prompt once seen', () => {
+    expect(shouldPromptIdentity(finished, null, true)).toBe(false)
+  })
+
+  it('does not prompt when an identity is already chosen', () => {
+    expect(shouldPromptIdentity(finished, 'Ada', false)).toBe(false)
+  })
+
+  it('does not prompt before any finished game exists', () => {
+    const unfinished: Game = { ...finished[0], status: 'playing' }
+    expect(shouldPromptIdentity([unfinished], null, false)).toBe(false)
+    expect(shouldPromptIdentity([], null, false)).toBe(false)
+  })
+
+  it('ignores a deleted finished game', () => {
+    const deleted: Game = { ...finished[0], deletedAt: 123 }
+    expect(shouldPromptIdentity([deleted], null, false)).toBe(false)
   })
 })

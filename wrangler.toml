@@ -43,8 +43,12 @@ binding = "DB"
 database_name = "flipscorer"
 # Replace with the id printed by `wrangler d1 create flipscorer`. A local dev
 # database is created automatically by `wrangler dev`, so this placeholder is
-# only needed for remote deploys.
+# only needed for remote deploys (the Deploy workflow fills it in from the
+# database it finds/creates).
 database_id = "REPLACE_WITH_D1_DATABASE_ID"
+# Lets `wrangler d1 migrations apply` track which migrations have run, so remote
+# schema updates are idempotent (safe to re-run on every deploy).
+migrations_dir = "migrations"
 
 # Web Push (RFC 8291/8292) — friend-request notifications. Optional: with no
 # VAPID keys set, the push endpoints report `enabled: false` and the client

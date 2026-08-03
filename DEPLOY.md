@@ -5,11 +5,27 @@ FlipScorer deploys as a single Cloudflare Worker that serves the built SPA
 Object), passwordless accounts, library sync, friends, and web push — all backed
 by one D1 (SQLite) database.
 
-Everything below runs from your own machine with your Cloudflare account. The
-CI sandbox can't do it: `wrangler` needs an interactive `wrangler login` (or a
-`CLOUDFLARE_API_TOKEN`) that isn't available there.
+## Option A — GitHub Actions (hands-off, recommended)
 
-## One-time setup
+GitHub's runners can reach Cloudflare, so the whole thing runs in CI. Add these
+under **Settings → Secrets and variables → Actions**, then run
+**Actions → Deploy (Cloudflare Worker) → Run workflow**:
+
+- Secrets: `CLOUDFLARE_API_TOKEN` (Workers Scripts:Edit + D1:Edit),
+  `CLOUDFLARE_ACCOUNT_ID`, `AUTH_SECRET` (any long random string).
+- Optional secrets: `RESEND_API_KEY` (real emails), `VAPID_PRIVATE_KEY` (push).
+- Optional variables: `SITE_URL`, `VAPID_PUBLIC_KEY`, `VAPID_SUBJECT`.
+
+The workflow finds/creates the `flipscorer` D1 database, applies migrations
+(idempotently), sets whichever secrets you provided, and deploys. It's safe to
+re-run for every release.
+
+## Option B — from your machine
+
+Runs against your Cloudflare account directly (needs an interactive
+`wrangler login`).
+
+### One-time setup
 
 ```bash
 # 0. Authenticate wrangler with your Cloudflare account.
@@ -19,8 +35,9 @@ npx wrangler login
 #    wrangler.toml (replace REPLACE_WITH_D1_DATABASE_ID).
 npx wrangler d1 create flipscorer
 
-# 2. Create the schema on the REMOTE database (first deploy only).
-node scripts/migrate-remote.mjs
+# 2. Create the schema on the REMOTE database (idempotent — tracks applied
+#    migrations, so it's safe to re-run when you add new ones later).
+npx wrangler d1 migrations apply flipscorer --remote
 
 # 3. Set the one required secret — a long random string used to sign/verify
 #    session tokens. Generate and store it:
@@ -50,10 +67,10 @@ npm run deploy        # builds the SPA, then `wrangler deploy`
 
 Re-run `npm run deploy` for every code change. Only the one-time steps above
 (login, D1 create, schema, secrets) are needed once. When you add a **new**
-migration later, apply just that file to remote:
+migration later, re-run the idempotent apply — it runs only the new files:
 
 ```bash
-npx wrangler d1 execute flipscorer --remote --file=./migrations/000N_name.sql
+npx wrangler d1 migrations apply flipscorer --remote
 ```
 
 ## Verify

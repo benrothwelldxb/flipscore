@@ -4,8 +4,22 @@ name: Deploy (Cloudflare Worker)
 # the Connected-mode signaling relay (the SignalRoom Durable Object). This is
 # what wrangler.toml describes.
 #
-# Add CLOUDFLARE_API_TOKEN and CLOUDFLARE_ACCOUNT_ID as repository secrets, then
-# run this workflow (Actions → Deploy (Cloudflare Worker) → Run workflow).
+# GitHub's runners can reach Cloudflare, so this is the hands-off way to ship.
+# It is idempotent — safe to run on every release.
+#
+# One-time setup — add these under Settings → Secrets and variables → Actions:
+#   Secrets (required):
+#     CLOUDFLARE_API_TOKEN   — token with Workers Scripts:Edit + D1:Edit
+#     CLOUDFLARE_ACCOUNT_ID  — your account id
+#     AUTH_SECRET            — any long random string (signs session tokens)
+#   Secrets (optional):
+#     RESEND_API_KEY         — send real sign-in emails (else console mode)
+#     VAPID_PRIVATE_KEY      — enable web push (pair with the vars below)
+#   Variables (optional):
+#     SITE_URL               — absolute origin for social-share tags
+#     VAPID_PUBLIC_KEY, VAPID_SUBJECT — web push (see scripts/generate-vapid.mjs)
+#
+# Then run it: Actions → Deploy (Cloudflare Worker) → Run workflow.
 on:
   workflow_dispatch:
 
@@ -13,6 +27,9 @@ jobs:
   deploy:
     name: Deploy Worker + assets
     runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -20,14 +37,54 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      # Set a repository variable SITE_URL (e.g. https://flipscorer.example.com)
-      # so social-share tags use absolute URLs. Optional; omit for relative.
-      - run: npm run build
+
+      - name: Build
+        run: npm run build
         env:
           SITE_URL: ${{ vars.SITE_URL }}
-      - name: Publish to Cloudflare
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: deploy
+
+      - name: Resolve or create the D1 database
+        run: |
+          set -euo pipefail
+          get_id() {
+            npx wrangler d1 list --json \
+              | jq -r '.[] | select(.name=="flipscorer") | .uuid'
+          }
+          ID="$(get_id)"
+          if [ -z "$ID" ] || [ "$ID" = "null" ]; then
+            echo "Creating D1 database 'flipscorer'…"
+            npx wrangler d1 create flipscorer
+            ID="$(get_id)"
+          fi
+          if [ -z "$ID" ] || [ "$ID" = "null" ]; then
+            echo "Could not resolve the D1 database id." >&2
+            exit 1
+          fi
+          echo "Using D1 database_id=$ID"
+          # Fill in wrangler.toml's placeholder for this run (not committed).
+          sed -i "s/REPLACE_WITH_D1_DATABASE_ID/$ID/" wrangler.toml
+
+      - name: Apply database migrations (idempotent)
+        run: npx wrangler d1 migrations apply flipscorer --remote
+
+      - name: Set secrets (only those provided)
+        env:
+          AUTH_SECRET: ${{ secrets.AUTH_SECRET }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          VAPID_PRIVATE_KEY: ${{ secrets.VAPID_PRIVATE_KEY }}
+        run: |
+          set -euo pipefail
+          put() { # put <NAME> <VALUE>
+            if [ -n "$2" ]; then
+              printf '%s' "$2" | npx wrangler secret put "$1"
+              echo "set secret $1"
+            else
+              echo "skip $1 (not provided)"
+            fi
+          }
+          put AUTH_SECRET "$AUTH_SECRET"
+          put RESEND_API_KEY "$RESEND_API_KEY"
+          put VAPID_PRIVATE_KEY "$VAPID_PRIVATE_KEY"
+
+      - name: Deploy
+        run: npx wrangler deploy

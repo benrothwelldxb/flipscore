@@ -17,6 +17,7 @@ import { LoadingState } from '@/components/common/screen-state'
 import { PlayerAvatar } from '@/components/game/player-avatar'
 import { PlayerEditor } from '@/components/game/player-editor'
 import { PageHeader } from '@/components/layout/page-header'
+import { LeagueTable } from '@/components/nights/league-table'
 import { NightForm } from '@/components/nights/night-form'
 import { NightSummary } from '@/components/nights/night-summary'
 import { Button } from '@/components/ui/button'
@@ -236,6 +237,7 @@ export function NightPage() {
           {summary && (
             <NightSummary summary={summary} onShare={share} sharing={sharing} />
           )}
+          <LeagueTable games={games} roster={roster} />
         </>
       ) : (
         <>
@@ -359,6 +361,7 @@ export function NightPage() {
             <section className="space-y-2">
               <h2 className="text-sm font-semibold">Standings so far</h2>
               <NightSummary summary={summary} />
+              <LeagueTable games={games} roster={roster} />
               <Dialog>
                 <DialogTrigger asChild>
                   <Button variant="outline" className="mt-2 h-12 w-full">

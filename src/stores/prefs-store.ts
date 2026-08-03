@@ -9,6 +9,8 @@ interface PrefsState {
   soundEnabled: boolean
   /** Opt-in to the experimental Camera Scoring feature (off by default). */
   cameraScoringEnabled: boolean
+  /** Opt-in to the live "win chance" estimate during play (off by default). */
+  winChanceEnabled: boolean
   /** Whether the first-run "How to play" intro has been shown. */
   introSeen: boolean
   /** Whether the "which player is you?" prompt has been shown. */
@@ -17,6 +19,7 @@ interface PrefsState {
   setHapticsEnabled: (enabled: boolean) => void
   setSoundEnabled: (enabled: boolean) => void
   setCameraScoringEnabled: (enabled: boolean) => void
+  setWinChanceEnabled: (enabled: boolean) => void
   setIntroSeen: (seen: boolean) => void
   setIdentityPromptSeen: (seen: boolean) => void
 }
@@ -28,6 +31,7 @@ export const usePrefsStore = create<PrefsState>()(
       hapticsEnabled: true,
       soundEnabled: false,
       cameraScoringEnabled: false,
+      winChanceEnabled: false,
       introSeen: false,
       identityPromptSeen: false,
       setScoreEntryMode: (scoreEntryMode) => set({ scoreEntryMode }),
@@ -35,13 +39,14 @@ export const usePrefsStore = create<PrefsState>()(
       setSoundEnabled: (soundEnabled) => set({ soundEnabled }),
       setCameraScoringEnabled: (cameraScoringEnabled) =>
         set({ cameraScoringEnabled }),
+      setWinChanceEnabled: (winChanceEnabled) => set({ winChanceEnabled }),
       setIntroSeen: (introSeen) => set({ introSeen }),
       setIdentityPromptSeen: (identityPromptSeen) =>
         set({ identityPromptSeen }),
     }),
     {
       name: 'flipscore-prefs',
-      version: 4,
+      version: 5,
       // Hand the stored state straight to `merge` (which tolerantly coerces
       // every field). Without this, a version bump makes persist discard the
       // old state entirely and reset every preference to its default.
@@ -60,6 +65,7 @@ export const usePrefsStore = create<PrefsState>()(
               ? saved.soundEnabled
               : false,
           cameraScoringEnabled: saved.cameraScoringEnabled === true,
+          winChanceEnabled: saved.winChanceEnabled === true,
           introSeen: saved.introSeen === true,
           identityPromptSeen: saved.identityPromptSeen === true,
         }
@@ -73,6 +79,8 @@ export const useHapticsEnabled = () => usePrefsStore((s) => s.hapticsEnabled)
 export const useSoundEnabled = () => usePrefsStore((s) => s.soundEnabled)
 export const useCameraScoringEnabled = () =>
   usePrefsStore((s) => s.cameraScoringEnabled)
+export const useWinChanceEnabled = () =>
+  usePrefsStore((s) => s.winChanceEnabled)
 export const useIntroSeen = () => usePrefsStore((s) => s.introSeen)
 export const useIdentityPromptSeen = () =>
   usePrefsStore((s) => s.identityPromptSeen)

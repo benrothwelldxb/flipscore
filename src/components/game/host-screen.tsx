@@ -23,6 +23,7 @@ import { Leaderboard } from './leaderboard'
 import { PlayerAvatar } from './player-avatar'
 import { RoundHistory } from './round-history'
 import { ScoreEntryPanel } from './score-entry-panel'
+import { WinChanceStrip } from './win-chance-strip'
 
 interface HostScreenProps {
   game: Game
@@ -164,6 +165,7 @@ export function HostScreen({ game }: HostScreenProps) {
           Standings
         </h2>
         <Leaderboard game={game} />
+        <WinChanceStrip game={game} />
       </section>
 
       <div className="bg-background/80 fixed inset-x-0 bottom-0 border-t px-4 pt-3 pb-safe backdrop-blur">

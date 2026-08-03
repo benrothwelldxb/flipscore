@@ -21,6 +21,7 @@ import {
   useHapticsEnabled,
   usePrefsStore,
   useSoundEnabled,
+  useWinChanceEnabled,
 } from '@/stores/prefs-store'
 import { useSetTheme, useTheme, type Theme } from '@/stores/theme-store'
 
@@ -36,9 +37,11 @@ export function SettingsDialog() {
   const haptics = useHapticsEnabled()
   const sound = useSoundEnabled()
   const cameraScoring = useCameraScoringEnabled()
+  const winChance = useWinChanceEnabled()
   const setHaptics = usePrefsStore((s) => s.setHapticsEnabled)
   const setSound = usePrefsStore((s) => s.setSoundEnabled)
   const setCameraScoring = usePrefsStore((s) => s.setCameraScoringEnabled)
+  const setWinChance = usePrefsStore((s) => s.setWinChanceEnabled)
   const themeRefs = useRef<(HTMLButtonElement | null)[]>([])
 
   function handleThemeKey(event: KeyboardEvent, index: number) {
@@ -162,6 +165,24 @@ export function SettingsDialog() {
                 id="camera-toggle"
                 checked={cameraScoring}
                 onCheckedChange={setCameraScoring}
+              />
+            </div>
+
+            <div className="mt-4 flex items-center justify-between gap-4">
+              <Label
+                htmlFor="winchance-toggle"
+                className="flex-col items-start gap-0.5"
+              >
+                Win chance
+                <span className="text-muted-foreground text-xs font-normal">
+                  Show a live estimate of each player&apos;s chance to win under
+                  the standings. A rough model, not a sure thing.
+                </span>
+              </Label>
+              <Switch
+                id="winchance-toggle"
+                checked={winChance}
+                onCheckedChange={setWinChance}
               />
             </div>
           </div>

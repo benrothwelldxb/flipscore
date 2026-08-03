@@ -11,6 +11,7 @@ import { useCanUndo, useGameStore } from '@/stores/game-store'
 
 import { Leaderboard } from './leaderboard'
 import { PlayerAvatar } from './player-avatar'
+import { WinChanceStrip } from './win-chance-strip'
 import { RoundHistory } from './round-history'
 import { ScoreEntryPanel } from './score-entry-panel'
 
@@ -199,6 +200,7 @@ export function PassThePhoneScreen({ game }: PassScreenProps) {
               </p>
             </div>
             <Leaderboard game={game} />
+            <WinChanceStrip game={game} />
             <div className="mt-auto flex flex-col gap-2 pt-2 pb-safe">
               <Button
                 size="lg"

@@ -46,7 +46,21 @@ database_name = "flipscorer"
 # only needed for remote deploys.
 database_id = "REPLACE_WITH_D1_DATABASE_ID"
 
+# Web Push (RFC 8291/8292) — friend-request notifications. Optional: with no
+# VAPID keys set, the push endpoints report `enabled: false` and the client
+# hides the Notifications toggle; everything else works unchanged.
+#   5. node scripts/generate-vapid.mjs            # prints a keypair
+#      npx wrangler d1 execute flipscorer --local  --file=./migrations/0006_push.sql
+#      npx wrangler d1 execute flipscorer --remote --file=./migrations/0006_push.sql
+#   6. npx wrangler secret put VAPID_PRIVATE_KEY  # paste the JWK it printed
+#      Set VAPID_PUBLIC_KEY and VAPID_SUBJECT under [vars] below.
+
 [vars]
 # Verified "From" address for sign-in emails (used only when RESEND_API_KEY is
 # set). Safe to commit — it is not a secret.
 EMAIL_FROM = "FlipScorer <onboarding@resend.dev>"
+# VAPID public key (raw P-256 point, base64url) from generate-vapid.mjs. Handed
+# to the browser as the applicationServerKey; safe to commit. VAPID_PRIVATE_KEY
+# is a secret (never here); VAPID_SUBJECT is your mailto:/https: contact.
+# VAPID_PUBLIC_KEY = "REPLACE_WITH_VAPID_PUBLIC_KEY"
+# VAPID_SUBJECT = "mailto:you@example.com"

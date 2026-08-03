@@ -98,6 +98,8 @@ export default defineConfig({
         ],
       },
       workbox: {
+        // Pull our push / notificationclick handlers into the generated SW.
+        importScripts: ['sw-push.js'],
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
         // Keep large social / launch / screenshot art out of the offline
         // precache — they're fetched on demand, not needed for the app shell.
@@ -105,6 +107,8 @@ export default defineConfig({
           '**/splash-*.png',
           '**/og-image.png',
           '**/screenshots/*.png',
+          // Imported directly by the SW; not a precache entry.
+          '**/sw-push.js',
         ],
       },
       // Keep the service worker out of the way during dev + tests.

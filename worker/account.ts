@@ -126,6 +126,9 @@ async function handleDelete(
     env.DB.prepare(`DELETE FROM sessions WHERE account_id = ?1`).bind(
       account.id,
     ),
+    env.DB.prepare(`DELETE FROM push_subscriptions WHERE account_id = ?1`).bind(
+      account.id,
+    ),
     env.DB.prepare(`DELETE FROM email_codes WHERE email = ?1`).bind(
       account.email,
     ),

@@ -14,6 +14,11 @@ export interface Env {
   RESEND_API_KEY?: string
   /** Verified "From" address for sign-in emails, e.g. "FlipScorer <hi@…>". */
   EMAIL_FROM?: string
+  /** VAPID keys for Web Push. When both are set, push is enabled. */
+  VAPID_PUBLIC_KEY?: string
+  VAPID_PRIVATE_KEY?: string
+  /** VAPID `sub` claim, e.g. "mailto:admin@flipscorer.app". */
+  VAPID_SUBJECT?: string
 }
 
 // Minimal ambient shims for the Cloudflare D1 (SQLite) client surface this
@@ -52,6 +57,11 @@ export interface DurableObjectStub {
 }
 export interface DurableObjectState {
   readonly id: DurableObjectId
+}
+
+export interface ExecutionContext {
+  waitUntil(promise: Promise<unknown>): void
+  passThroughOnException(): void
 }
 
 declare global {

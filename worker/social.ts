@@ -1,6 +1,19 @@
 import { accountForRequest } from './auth'
+import { notify } from './push'
 import { fixedWindowAllow } from './ratelimit'
-import type { Env } from './worker.d'
+import type { Env, ExecutionContext } from './worker.d'
+
+/** Fire a push in the background (survives the response) when ctx is present. */
+function queuePush(
+  ctx: ExecutionContext | undefined,
+  env: Env,
+  accountId: string,
+  payload: { title: string; body: string; url?: string },
+): void {
+  const work = notify(env, accountId, 'friends', payload)
+  if (ctx) ctx.waitUntil(work)
+  else void work
+}
 
 // Friends & leaderboards. Routes under /api/social/* (all Bearer-authenticated):
 //
@@ -281,6 +294,7 @@ async function handleAddFriend(
   env: Env,
   account: { id: string; email: string },
   now: number,
+  ctx: ExecutionContext | undefined,
 ): Promise<Response> {
   // Per-account throttle: stops using this endpoint as a friend-code oracle
   // (200 vs 404) and caps request spam. Counts every attempt, valid or not.
@@ -294,7 +308,8 @@ async function handleAddFriend(
   if (!limit.ok) return rateLimited(limit.retryAfter)
 
   // Ensure the caller has an identity (so they're addable back).
-  await ensureIdentity(env, account, now)
+  const me = await ensureIdentity(env, account, now)
+  const myName = me.displayName || 'A player'
 
   const code = normalizeCode((await parseJson(request)).code)
   if (code.length !== CODE_LENGTH) return json({ error: 'invalid_code' }, 400)
@@ -326,6 +341,11 @@ async function handleAddFriend(
     .first<{ one: number }>()
   if (reverse) {
     await acceptRequestPair(env, account.id, target.account_id, now)
+    queuePush(ctx, env, target.account_id, {
+      title: 'FlipScorer',
+      body: `${myName} accepted your friend request`,
+      url: '/friends',
+    })
     return json({ status: 'accepted', friend })
   }
 
@@ -336,6 +356,11 @@ async function handleAddFriend(
   )
     .bind(account.id, target.account_id, now)
     .run()
+  queuePush(ctx, env, target.account_id, {
+    title: 'FlipScorer',
+    body: `${myName} sent you a friend request`,
+    url: '/friends',
+  })
   return json({
     status: 'pending',
     to: { accountId: target.account_id, displayName: target.display_name },
@@ -379,6 +404,7 @@ async function handleRespond(
   env: Env,
   account: { id: string; email: string },
   now: number,
+  ctx: ExecutionContext | undefined,
 ): Promise<Response> {
   const body = await parseJson(request)
   const fromAccountId = body.fromAccountId
@@ -407,8 +433,13 @@ async function handleRespond(
     return json({ ok: true })
   }
 
-  await ensureIdentity(env, account, now)
+  const me = await ensureIdentity(env, account, now)
   await acceptRequestPair(env, account.id, fromAccountId, now)
+  queuePush(ctx, env, fromAccountId, {
+    title: 'FlipScorer',
+    body: `${me.displayName || 'A player'} accepted your friend request`,
+    url: '/friends',
+  })
   return json({ friend: await friendPayload(env, fromAccountId) })
 }
 
@@ -441,6 +472,7 @@ export async function handleSocial(
   request: Request,
   env: Env,
   now: number = Date.now(),
+  ctx?: ExecutionContext,
 ): Promise<Response> {
   const account = await accountForRequest(request, env, now)
   if (!account) return json({ error: 'unauthorized' }, 401)
@@ -458,9 +490,9 @@ export async function handleSocial(
   if (route === 'friends/requests' && method === 'GET')
     return handleRequests(env, account, now)
   if (route === 'friends/add' && method === 'POST')
-    return handleAddFriend(request, env, account, now)
+    return handleAddFriend(request, env, account, now, ctx)
   if (route === 'friends/respond' && method === 'POST')
-    return handleRespond(request, env, account, now)
+    return handleRespond(request, env, account, now, ctx)
   if (route === 'friends/remove' && method === 'POST')
     return handleRemoveFriend(request, env, account)
 

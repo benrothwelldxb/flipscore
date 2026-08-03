@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import {
+  BellRing,
   CloudCheck,
   Download,
   LogOut,
@@ -11,6 +12,7 @@ import {
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
 import {
   AccountApiError,
   deleteAccount,
@@ -18,6 +20,7 @@ import {
 } from '@/net/account-api'
 import { cn } from '@/lib/utils'
 import { useAccountStore } from '@/stores/account-store'
+import { usePushStore } from '@/stores/push-store'
 import {
   useLastSyncedAt,
   useSyncStatus,
@@ -288,7 +291,80 @@ function SignedIn({
         </div>
       </div>
 
+      <Notifications />
       <ManageData onDeleted={onSignOut} />
+    </div>
+  )
+}
+
+/** Web Push opt-in: a single toggle, plus an iOS "install first" hint. */
+function Notifications() {
+  const supported = usePushStore((s) => s.supported)
+  const permission = usePushStore((s) => s.permission)
+  const serverEnabled = usePushStore((s) => s.serverEnabled)
+  const subscribed = usePushStore((s) => s.subscribed)
+  const busy = usePushStore((s) => s.busy)
+  const error = usePushStore((s) => s.error)
+  const refresh = usePushStore((s) => s.refresh)
+  const enable = usePushStore((s) => s.enable)
+  const disable = usePushStore((s) => s.disable)
+
+  useEffect(() => {
+    void refresh()
+  }, [refresh])
+
+  // iOS Safari only exposes Web Push once the app is installed to the Home
+  // Screen (standalone). In a browser tab, guide the user to install first.
+  if (!supported) {
+    const isIos = /iP(hone|ad|od)/.test(navigator.userAgent)
+    const standalone =
+      window.matchMedia('(display-mode: standalone)').matches ||
+      (navigator as { standalone?: boolean }).standalone === true
+    if (isIos && !standalone) {
+      return (
+        <div className="text-muted-foreground mt-3 flex items-start gap-1.5 border-t pt-3 text-xs">
+          <BellRing className="mt-0.5 size-4 shrink-0" aria-hidden />
+          <span>
+            To get notifications on iPhone or iPad, add FlipScorer to your Home
+            Screen first (Share → Add to Home Screen), then open it from there.
+          </span>
+        </div>
+      )
+    }
+    return null
+  }
+
+  // The server has no push keys configured — nothing to offer yet.
+  if (!serverEnabled && !subscribed) return null
+
+  const blocked = permission === 'denied'
+
+  return (
+    <div className="mt-3 border-t pt-3">
+      <div className="flex items-center justify-between gap-4">
+        <Label htmlFor="push-toggle" className="flex-col items-start gap-0.5">
+          <span className="flex items-center gap-1.5">
+            <BellRing className="size-4" aria-hidden />
+            Notifications
+          </span>
+          <span className="text-muted-foreground text-xs font-normal">
+            {blocked
+              ? 'Blocked — allow notifications in your browser settings.'
+              : 'Friend requests and accepts, even when the app is closed.'}
+          </span>
+        </Label>
+        <Switch
+          id="push-toggle"
+          checked={subscribed}
+          disabled={busy || blocked || !serverEnabled}
+          onCheckedChange={(value) => void (value ? enable() : disable())}
+        />
+      </div>
+      {error && (
+        <p role="alert" className="text-destructive mt-2 text-sm">
+          {error}
+        </p>
+      )}
     </div>
   )
 }

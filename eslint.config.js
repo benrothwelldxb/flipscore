@@ -15,6 +15,8 @@ export default tseslint.config(
       'test-results',
       'node_modules',
       '.wrangler',
+      // Static assets, incl. the service-worker push script (SW globals).
+      'public',
     ],
   },
   {

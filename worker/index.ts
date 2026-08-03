@@ -1,9 +1,10 @@
 import { handleAccount } from './account'
 import { handleAuth } from './auth'
+import { handlePush } from './push'
 import { handleSocial } from './social'
 import { handleSync } from './sync'
 import { SignalRoom } from './signal-room'
-import type { Env } from './worker.d'
+import type { Env, ExecutionContext } from './worker.d'
 
 export { SignalRoom }
 
@@ -15,7 +16,11 @@ export { SignalRoom }
  * binding's single-page-application fallback.
  */
 export default {
-  async fetch(request: Request, env: Env): Promise<Response> {
+  async fetch(
+    request: Request,
+    env: Env,
+    ctx: ExecutionContext,
+  ): Promise<Response> {
     const url = new URL(request.url)
     if (url.pathname.startsWith('/rtc/')) {
       const code = url.pathname.slice('/rtc/'.length).toUpperCase()
@@ -30,7 +35,11 @@ export default {
       return handleSync(request, env)
     }
     if (url.pathname.startsWith('/api/social/')) {
-      return handleSocial(request, env)
+      // ctx lets social triggers deliver push after the response is sent.
+      return handleSocial(request, env, Date.now(), ctx)
+    }
+    if (url.pathname.startsWith('/api/push/')) {
+      return handlePush(request, env)
     }
     if (url.pathname.startsWith('/api/account/')) {
       return handleAccount(request, env)

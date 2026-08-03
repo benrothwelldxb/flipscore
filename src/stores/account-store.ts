@@ -62,6 +62,16 @@ export const useAccountStore = create<AccountState>()(
 
       async signOut() {
         const { token } = get()
+        // Turn off push while we still hold the token, so this device stops
+        // receiving the previous account's notifications (matters on a shared
+        // device). Dynamic import avoids a static store import cycle; no-ops
+        // where push is unsupported. Best effort — never blocks sign-out.
+        try {
+          const { usePushStore } = await import('@/stores/push-store')
+          await usePushStore.getState().disable()
+        } catch {
+          // ignore — sign-out proceeds regardless
+        }
         set({ user: null, token: null, pendingEmail: null, devCode: null })
         if (token) {
           // Best effort — local state is already cleared regardless.

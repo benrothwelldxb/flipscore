@@ -32,6 +32,7 @@ class FakeDB {
   codes = new Map<string, CodeRow>()
   accounts = new Map<string, AccountRow>()
   sessions = new Map<string, SessionRow>()
+  rateLimits = new Map<string, { window_start: number; count: number }>()
 
   prepare(query: string): FakeStmt {
     return new FakeStmt(this, query.replace(/\s+/g, ' ').trim())
@@ -86,6 +87,15 @@ class FakeStmt {
           : null,
       )
     }
+    if (sql.includes('SELECT created_at FROM email_codes')) {
+      const row = db.codes.get(args[0] as string)
+      return Promise.resolve(row ? ({ created_at: row.created_at } as T) : null)
+    }
+    if (sql.includes('SELECT window_start, count FROM rate_limits')) {
+      return Promise.resolve(
+        (db.rateLimits.get(args[0] as string) ?? null) as T,
+      )
+    }
     return Promise.resolve(null)
   }
 
@@ -133,6 +143,19 @@ class FakeStmt {
       })
     } else if (sql.includes('DELETE FROM sessions')) {
       db.sessions.delete(args[0] as string)
+    } else if (sql.includes('DELETE FROM rate_limits WHERE window_start')) {
+      const cutoff = args[0] as number
+      for (const [key, row] of db.rateLimits) {
+        if (row.window_start < cutoff) db.rateLimits.delete(key)
+      }
+    } else if (sql.includes('INSERT INTO rate_limits')) {
+      db.rateLimits.set(args[0] as string, {
+        window_start: args[1] as number,
+        count: 1,
+      })
+    } else if (sql.includes('UPDATE rate_limits SET count')) {
+      const row = db.rateLimits.get(args[0] as string)
+      if (row) row.count += 1
     }
     return Promise.resolve({ results: [], success: true, meta: {} })
   }
@@ -150,6 +173,7 @@ interface ReqOpts {
   method?: string
   body?: unknown
   token?: string
+  ip?: string
 }
 function req(path: string, opts: ReqOpts = {}): Request {
   // A local origin so the console adapter echoes devCode back (see auth.ts).
@@ -158,6 +182,7 @@ function req(path: string, opts: ReqOpts = {}): Request {
     headers: {
       ...(opts.body ? { 'content-type': 'application/json' } : {}),
       ...(opts.token ? { authorization: `Bearer ${opts.token}` } : {}),
+      ...(opts.ip ? { 'CF-Connecting-IP': opts.ip } : {}),
     },
     body: opts.body ? JSON.stringify(opts.body) : undefined,
   })
@@ -397,6 +422,112 @@ describe('auth handler', () => {
     expect(body.devCode).toBeUndefined()
     // The code was still generated and stored — just not disclosed.
     expect(db.codes.has('fi@x.io')).toBe(true)
+  })
+
+  it('enforces a per-email cooldown between code requests', async () => {
+    const db = new FakeDB()
+    const env = makeEnv(db)
+    const first = await handleAuth(
+      req('/api/auth/request-code', {
+        method: 'POST',
+        body: { email: 'cool@x.io' },
+      }),
+      env,
+      NOW,
+    )
+    expect(first.status).toBe(200)
+
+    // A second request 30s later (within the 60s cooldown) is refused.
+    const soon = await handleAuth(
+      req('/api/auth/request-code', {
+        method: 'POST',
+        body: { email: 'cool@x.io' },
+      }),
+      env,
+      NOW + 30_000,
+    )
+    expect(soon.status).toBe(429)
+    expect(((await soon.json()) as { error: string }).error).toBe('cooldown')
+  })
+
+  it('rate-limits code requests per IP and resets after the window', async () => {
+    const db = new FakeDB()
+    const env = makeEnv(db)
+    // Distinct emails (no per-email cooldown) from one IP: 10 allowed, 11th not.
+    for (let i = 0; i < 10; i++) {
+      const r = await handleAuth(
+        req('/api/auth/request-code', {
+          method: 'POST',
+          body: { email: `u${i}@x.io` },
+        }),
+        env,
+        NOW,
+      )
+      expect(r.status).toBe(200)
+    }
+    const blocked = await handleAuth(
+      req('/api/auth/request-code', {
+        method: 'POST',
+        body: { email: 'u10@x.io' },
+      }),
+      env,
+      NOW,
+    )
+    expect(blocked.status).toBe(429)
+    expect(((await blocked.json()) as { error: string }).error).toBe(
+      'rate_limited',
+    )
+
+    // After the 15-minute window, requests are allowed again.
+    const later = await handleAuth(
+      req('/api/auth/request-code', {
+        method: 'POST',
+        body: { email: 'u11@x.io' },
+      }),
+      env,
+      NOW + 15 * 60 * 1000 + 1,
+    )
+    expect(later.status).toBe(200)
+  })
+
+  it('rate-limits per IP: one IP is blocked while another is unaffected', async () => {
+    const db = new FakeDB()
+    const env = makeEnv(db)
+    // Exhaust IP "1.1.1.1".
+    for (let i = 0; i < 10; i++) {
+      await handleAuth(
+        req('/api/auth/request-code', {
+          method: 'POST',
+          body: { email: `a${i}@x.io` },
+          ip: '1.1.1.1',
+        }),
+        env,
+        NOW,
+      )
+    }
+    const blocked = await handleAuth(
+      req('/api/auth/request-code', {
+        method: 'POST',
+        body: { email: 'a10@x.io' },
+        ip: '1.1.1.1',
+      }),
+      env,
+      NOW,
+    )
+    expect(blocked.status).toBe(429)
+    expect(blocked.headers.get('retry-after')).toBeTruthy()
+
+    // A different IP has its own, untouched budget.
+    const other = await handleAuth(
+      req('/api/auth/request-code', {
+        method: 'POST',
+        body: { email: 'b0@x.io' },
+        ip: '2.2.2.2',
+      }),
+      env,
+      NOW,
+    )
+    expect(other.status).toBe(200)
   })
 
   it('validates input and unknown routes', async () => {

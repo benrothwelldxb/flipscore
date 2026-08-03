@@ -22,6 +22,12 @@ const CODE_TTL_MS = 10 * 60 * 1000 // 10 minutes
 const SESSION_TTL_MS = 90 * 24 * 60 * 60 * 1000 // 90 days
 const MAX_CODE_ATTEMPTS = 5
 
+// Abuse throttling for request-code: a per-email cooldown (no new mailbox spam)
+// and a per-IP fixed window (no bulk enumeration / Resend quota burn).
+const CODE_COOLDOWN_MS = 60 * 1000 // 1 code per email per minute
+const IP_WINDOW_MS = 15 * 60 * 1000 // 15-minute window
+const IP_WINDOW_LIMIT = 10 // …max 10 codes requested per IP
+
 /** Shape returned to the client for the signed-in identity. */
 interface User {
   id: string
@@ -32,6 +38,17 @@ function json(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: { 'content-type': 'application/json; charset=utf-8' },
+  })
+}
+
+/** A 429 with both a machine-readable body and the standard Retry-After header. */
+function rateLimited(error: string, retryAfter: number): Response {
+  return new Response(JSON.stringify({ error, retryAfter }), {
+    status: 429,
+    headers: {
+      'content-type': 'application/json; charset=utf-8',
+      'retry-after': String(Math.max(0, retryAfter)),
+    },
   })
 }
 
@@ -81,6 +98,61 @@ function isLocalHost(url: URL): boolean {
   )
 }
 
+/**
+ * Fixed-window per-IP rate limit for a hashed key. Returns whether the request
+ * is allowed and, if not, roughly how many seconds until the window resets.
+ * Read-modify-write is intentionally approximate — for an abuse throttle
+ * "about N per window" is enough, and it stays testable with the fake D1.
+ */
+async function checkIpRateLimit(
+  env: Env,
+  ip: string,
+  now: number,
+): Promise<{ ok: boolean; retryAfter: number }> {
+  const key = `reqcode:${await sha256Hex(ip)}`
+  // Opportunistic cleanup of long-expired rows so the table can't grow forever.
+  await env.DB.prepare(`DELETE FROM rate_limits WHERE window_start < ?1`)
+    .bind(now - IP_WINDOW_MS)
+    .run()
+
+  const row = await env.DB.prepare(
+    `SELECT window_start, count FROM rate_limits WHERE key = ?1`,
+  )
+    .bind(key)
+    .first<{ window_start: number; count: number }>()
+
+  if (!row || now - row.window_start >= IP_WINDOW_MS) {
+    await env.DB.prepare(
+      `INSERT INTO rate_limits (key, window_start, count) VALUES (?1, ?2, 1)
+       ON CONFLICT(key) DO UPDATE SET window_start = ?2, count = 1`,
+    )
+      .bind(key, now)
+      .run()
+    return { ok: true, retryAfter: 0 }
+  }
+
+  if (row.count >= IP_WINDOW_LIMIT) {
+    const retryAfter = Math.ceil((row.window_start + IP_WINDOW_MS - now) / 1000)
+    return { ok: false, retryAfter }
+  }
+
+  await env.DB.prepare(
+    `UPDATE rate_limits SET count = count + 1 WHERE key = ?1`,
+  )
+    .bind(key)
+    .run()
+  return { ok: true, retryAfter: 0 }
+}
+
+/** The best-effort client IP for throttling (Cloudflare sets CF-Connecting-IP). */
+function clientIp(request: Request): string {
+  return (
+    request.headers.get('CF-Connecting-IP') ??
+    request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ??
+    'unknown'
+  )
+}
+
 async function parseJson(request: Request): Promise<Record<string, unknown>> {
   try {
     const body = (await request.json()) as unknown
@@ -101,6 +173,24 @@ async function handleRequestCode(
   const email = normalizeEmail(body.email)
   if (!email) return json({ error: 'invalid_email' }, 400)
 
+  // Per-email cooldown BEFORE the per-IP window, so a legitimate user's impatient
+  // resends of their own address don't burn (and lock out) their shared IP.
+  const pending = await env.DB.prepare(
+    `SELECT created_at FROM email_codes WHERE email = ?1`,
+  )
+    .bind(email)
+    .first<{ created_at: number }>()
+  if (pending && now - pending.created_at < CODE_COOLDOWN_MS) {
+    const retryAfter = Math.ceil(
+      (pending.created_at + CODE_COOLDOWN_MS - now) / 1000,
+    )
+    return rateLimited('cooldown', retryAfter)
+  }
+
+  // Per-IP fixed window — catches address-rotation / enumeration floods.
+  const ipLimit = await checkIpRateLimit(env, clientIp(request), now)
+  if (!ipLimit.ok) return rateLimited('rate_limited', ipLimit.retryAfter)
+
   const code = randomCode()
   const codeHash = await hashCode(email, code, env)
   const expiresAt = now + CODE_TTL_MS
@@ -119,6 +209,10 @@ async function handleRequestCode(
     await sender.send(email, code)
   } catch (error) {
     console.error('[auth] email send failed', error)
+    // Roll back the pending code so its cooldown doesn't block the user's retry.
+    await env.DB.prepare(`DELETE FROM email_codes WHERE email = ?1`)
+      .bind(email)
+      .run()
     return json({ error: 'email_failed' }, 502)
   }
 

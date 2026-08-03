@@ -1,3 +1,4 @@
+import { handleAccount } from './account'
 import { handleAuth } from './auth'
 import { handleSocial } from './social'
 import { handleSync } from './sync'
@@ -30,6 +31,9 @@ export default {
     }
     if (url.pathname.startsWith('/api/social/')) {
       return handleSocial(request, env)
+    }
+    if (url.pathname.startsWith('/api/account/')) {
+      return handleAccount(request, env)
     }
     return env.ASSETS.fetch(request)
   },

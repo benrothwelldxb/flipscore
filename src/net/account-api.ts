@@ -101,6 +101,19 @@ export async function signOut(token: string): Promise<void> {
   await call<{ ok: true }>('/sign-out', { method: 'POST', token })
 }
 
+/** Download everything the server holds for this account, as a JSON object. */
+export function exportAccount(token: string): Promise<unknown> {
+  return apiRequest<unknown>('/api/account/export', { token })
+}
+
+/** Permanently delete this account and all associated server data. */
+export async function deleteAccount(token: string): Promise<void> {
+  await apiRequest<{ ok: true }>('/api/account/delete', {
+    method: 'POST',
+    token,
+  })
+}
+
 export interface SyncResponse {
   cursor: number
   changes: SyncItem[]

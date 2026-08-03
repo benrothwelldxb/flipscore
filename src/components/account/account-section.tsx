@@ -1,10 +1,21 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { CloudCheck, LogOut, Mail, RefreshCw } from 'lucide-react'
+import {
+  CloudCheck,
+  Download,
+  LogOut,
+  Mail,
+  RefreshCw,
+  Trash2,
+} from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { AccountApiError } from '@/net/account-api'
+import {
+  AccountApiError,
+  deleteAccount,
+  exportAccount,
+} from '@/net/account-api'
 import { cn } from '@/lib/utils'
 import { useAccountStore } from '@/stores/account-store'
 import {
@@ -276,6 +287,135 @@ function SignedIn({
           </Button>
         </div>
       </div>
+
+      <ManageData onDeleted={onSignOut} />
+    </div>
+  )
+}
+
+/** Export-my-data and delete-account controls (the account "danger zone"). */
+function ManageData({ onDeleted }: { onDeleted: () => void }) {
+  const token = useAccountStore((s) => s.token)
+  const [busy, setBusy] = useState<'export' | 'delete' | null>(null)
+  const [confirming, setConfirming] = useState(false)
+  const [confirmText, setConfirmText] = useState('')
+  const [error, setError] = useState<string | null>(null)
+
+  async function onExport() {
+    if (!token) return
+    setError(null)
+    setBusy('export')
+    try {
+      const data = await exportAccount(token)
+      const blob = new Blob([JSON.stringify(data, null, 2)], {
+        type: 'application/json',
+      })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'flipscorer-export.json'
+      document.body.append(a)
+      a.click()
+      a.remove()
+      // Defer revoke so Safari/older Firefox finish the download first.
+      setTimeout(() => URL.revokeObjectURL(url), 0)
+    } catch {
+      setError('Could not export right now. Try again.')
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  async function onDelete() {
+    if (!token) return
+    setError(null)
+    setBusy('delete')
+    try {
+      await deleteAccount(token)
+      onDeleted() // signs out locally; the session is already gone server-side
+    } catch {
+      setError('Could not delete the account. Try again.')
+      setBusy(null)
+    }
+  }
+
+  return (
+    <div className="mt-3 border-t pt-3">
+      <div className="flex items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => void onExport()}
+          disabled={busy !== null}
+        >
+          <Download className="size-4" />
+          {busy === 'export' ? 'Exporting…' : 'Export my data'}
+        </Button>
+        {!confirming && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-destructive"
+            onClick={() => {
+              setConfirming(true)
+              setError(null)
+            }}
+            disabled={busy !== null}
+          >
+            <Trash2 className="size-4" />
+            Delete account
+          </Button>
+        )}
+      </div>
+
+      {confirming && (
+        <div className="mt-3 space-y-2">
+          <p className="text-muted-foreground text-xs">
+            This permanently erases your account and everything synced to the
+            cloud. Games already on this device stay put. Type{' '}
+            <span className="text-foreground font-semibold">DELETE</span> to
+            confirm.
+          </p>
+          <div className="flex gap-2">
+            <Input
+              value={confirmText}
+              autoCapitalize="characters"
+              aria-label="Type DELETE to confirm"
+              placeholder="DELETE"
+              onChange={(e) => setConfirmText(e.target.value)}
+            />
+            <Button
+              variant="destructive"
+              size="sm"
+              className="shrink-0"
+              disabled={
+                confirmText.trim().toUpperCase() !== 'DELETE' || busy !== null
+              }
+              onClick={() => void onDelete()}
+            >
+              {busy === 'delete' ? 'Deleting…' : 'Delete'}
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="shrink-0"
+              onClick={() => {
+                setConfirming(false)
+                setConfirmText('')
+              }}
+              disabled={busy !== null}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {error && (
+        <p role="alert" className="text-destructive mt-2 text-sm">
+          {error}
+        </p>
+      )}
     </div>
   )
 }

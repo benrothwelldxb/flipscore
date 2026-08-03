@@ -31,6 +31,13 @@ interface StickersState {
    * catalog order, so the caller can celebrate them.
    */
   reconcile: (metrics: AchievementMetrics, now?: number) => Sticker[]
+  /**
+   * Rebuild the collection to *exactly* the stickers earned for `metrics`,
+   * preserving original unlock times for those that stay. Used when the "you"
+   * identity changes, so the album shows that player's achievements rather than
+   * accumulating everyone's.
+   */
+  rebuild: (metrics: AchievementMetrics, now?: number) => void
   /** Mark ids as seen (drops their NEW flag). */
   acknowledge: (ids: string[]) => void
   /** Mark every unlocked sticker as seen. */
@@ -62,6 +69,21 @@ export const useStickersStore = create<StickersState>()(
         return STICKERS.filter((s) => earned.includes(s.id))
       },
 
+      rebuild: (metrics, now) => {
+        const earned = new Set(unlockedIds(metrics))
+        const at = now ?? Date.now()
+        set((s) => {
+          const unlocked: Record<string, StickerUnlock> = {}
+          for (const id of earned) {
+            unlocked[id] = s.unlocked[id] ?? { id, unlockedAt: at }
+          }
+          return {
+            unlocked,
+            acknowledged: s.acknowledged.filter((id) => earned.has(id)),
+          }
+        })
+      },
+
       acknowledge: (ids) =>
         set((s) => {
           const seen = new Set(s.acknowledged)
@@ -78,7 +100,21 @@ export const useStickersStore = create<StickersState>()(
     }),
     {
       name: 'flipscore-stickers',
-      version: 1,
+      version: 2,
+      // v2: achievements became personal (scoped to "you") rather than
+      // device-wide. Clear the old collection so it re-derives from your own
+      // games on the next reconcile — no more stickers earned by other players.
+      migrate: (persisted, version) => {
+        if (version < 2) return { unlocked: {}, acknowledged: [] }
+        const s = (persisted ?? {}) as {
+          unlocked?: Record<string, StickerUnlock>
+          acknowledged?: string[]
+        }
+        return {
+          unlocked: s.unlocked ?? {},
+          acknowledged: s.acknowledged ?? [],
+        }
+      },
       partialize: (s) => ({
         unlocked: s.unlocked,
         acknowledged: s.acknowledged,

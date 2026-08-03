@@ -85,8 +85,24 @@ describe('stickers store', () => {
       rev: 1,
       deletedAt: null,
     }
-    const earned = newState().reconcile(computeAchievementMetrics([game]), 100)
+    const earned = newState().reconcile(
+      computeAchievementMetrics([game], 'Ada'),
+      100,
+    )
     expect(earned.map((s) => s.id)).toContain('first-win')
+  })
+
+  it('rebuild replaces the collection with exactly the earned set', () => {
+    // Start with two stickers unlocked.
+    newState().reconcile(metrics({ gamesFinished: 1, bestWins: 1 }), 100)
+    expect(newState().unlocked['first-win']).toBeTruthy()
+    expect(newState().unlocked['first-steps']).toBeTruthy()
+
+    // Rebuild for metrics that only earn "first-steps": "first-win" is dropped,
+    // and the surviving sticker keeps its original unlock time.
+    newState().rebuild(metrics({ gamesFinished: 1 }), 999)
+    expect(newState().unlocked['first-win']).toBeUndefined()
+    expect(newState().unlocked['first-steps'].unlockedAt).toBe(100)
   })
 
   it('resets the collection', () => {

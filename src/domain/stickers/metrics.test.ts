@@ -46,13 +46,23 @@ function mkGame(opts: GameOpts): Game {
   }
 }
 
-describe('computeAchievementMetrics', () => {
-  it('returns an all-zero object for no games', () => {
+describe('computeAchievementMetrics (personal to "you")', () => {
+  it('returns all-zero for no games', () => {
     const m = computeAchievementMetrics([])
     for (const value of Object.values(m)) expect(value).toBe(0)
   })
 
-  it('counts games, rounds, totals and highest round', () => {
+  it('returns all-zero when no identity is given', () => {
+    const g = mkGame({
+      players: ['Ada', 'Bo'],
+      rounds: [{ Ada: 200, Bo: 10 }],
+      winner: 'Ada',
+    })
+    const m = computeAchievementMetrics([g]) // no "me"
+    for (const value of Object.values(m)) expect(value).toBe(0)
+  })
+
+  it('counts only your games, rounds, totals and highest round', () => {
     const g = mkGame({
       players: ['Ada', 'Bo'],
       rounds: [
@@ -61,16 +71,40 @@ describe('computeAchievementMetrics', () => {
       ],
       winner: 'Ada',
     })
-    const m = computeAchievementMetrics([g])
+    const m = computeAchievementMetrics([g], 'Ada')
     expect(m.gamesFinished).toBe(1)
     expect(m.roundsPlayed).toBe(2)
     expect(m.biggestTable).toBe(2)
-    expect(m.distinctPlayers).toBe(2)
+    expect(m.distinctPlayers).toBe(1) // opponents only (Bo)
     expect(m.highestRound).toBe(160)
     expect(m.highestTotal).toBe(210)
     expect(m.bestWins).toBe(1)
     expect(m.flawlessWins).toBe(1)
     expect(m.winsWithBust).toBe(0)
+  })
+
+  it('is case-insensitive on the identity name', () => {
+    const g = mkGame({
+      players: ['Ada', 'Bo'],
+      rounds: [{ Ada: 200, Bo: 10 }],
+      winner: 'Ada',
+    })
+    expect(computeAchievementMetrics([g], 'ADA').bestWins).toBe(1)
+  })
+
+  it('does not credit you for another player’s achievements', () => {
+    const g = mkGame({
+      players: ['Ada', 'Bo'],
+      rounds: [{ Ada: 10, Bo: 200 }],
+      flags: { 0: { Bo: { flip7: true } } },
+      winner: 'Bo',
+    })
+    // From Ada's perspective: she played, but Bo's win and Flip 7 aren't hers.
+    const m = computeAchievementMetrics([g], 'Ada')
+    expect(m.gamesFinished).toBe(1)
+    expect(m.bestWins).toBe(0)
+    expect(m.totalFlip7).toBe(0)
+    expect(m.flawlessWins).toBe(0)
   })
 
   it('ignores deleted and unfinished games', () => {
@@ -85,12 +119,12 @@ describe('computeAchievementMetrics', () => {
       winner: 'Ada',
       deletedAt: 1,
     })
-    const m = computeAchievementMetrics([finished, deleted])
+    const m = computeAchievementMetrics([finished, deleted], 'Ada')
     expect(m.gamesFinished).toBe(1)
     expect(m.bestWins).toBe(1)
   })
 
-  it('detects a comeback from last place and a big deficit', () => {
+  it('detects your comeback from last place and a big deficit', () => {
     const g = mkGame({
       players: ['Ada', 'Bo'],
       rounds: [
@@ -99,7 +133,7 @@ describe('computeAchievementMetrics', () => {
       ],
       winner: 'Ada',
     })
-    const m = computeAchievementMetrics([g])
+    const m = computeAchievementMetrics([g], 'Ada')
     expect(m.comebackWins).toBe(1)
     expect(m.bigComebackWins).toBe(1)
   })
@@ -113,12 +147,12 @@ describe('computeAchievementMetrics', () => {
       ],
       winner: 'Ada',
     })
-    const m = computeAchievementMetrics([g])
+    const m = computeAchievementMetrics([g], 'Ada')
     expect(m.comebackWins).toBe(0)
     expect(m.bigComebackWins).toBe(0)
   })
 
-  it('counts flip 7 and bust flags, and a win that involved a bust', () => {
+  it('counts your flip 7s and busts, and a win where you busted', () => {
     const g = mkGame({
       players: ['Ada', 'Bo'],
       rounds: [
@@ -131,15 +165,15 @@ describe('computeAchievementMetrics', () => {
       },
       winner: 'Ada',
     })
-    const m = computeAchievementMetrics([g])
+    const m = computeAchievementMetrics([g], 'Ada')
     expect(m.totalFlip7).toBe(1)
     expect(m.bestFlip7).toBe(1)
-    expect(m.totalBusts).toBe(2)
+    expect(m.totalBusts).toBe(1) // Ada's bust only, not Bo's
     expect(m.winsWithBust).toBe(1)
     expect(m.flawlessWins).toBe(0)
   })
 
-  it('counts close wins and low-scoring wins', () => {
+  it('counts your close wins and low-scoring wins', () => {
     const close = mkGame({
       players: ['Ada', 'Bo'],
       rounds: [{ Ada: 201, Bo: 200 }],
@@ -150,12 +184,12 @@ describe('computeAchievementMetrics', () => {
       rounds: [{ Cy: 118, Di: 90 }],
       winner: 'Cy',
     })
-    const m = computeAchievementMetrics([close, low])
-    expect(m.closeWins).toBe(1)
-    expect(m.lowScoringWins).toBe(1)
+    expect(computeAchievementMetrics([close], 'Ada').closeWins).toBe(1)
+    expect(computeAchievementMetrics([close], 'Ada').lowScoringWins).toBe(0)
+    expect(computeAchievementMetrics([low], 'Cy').lowScoringWins).toBe(1)
   })
 
-  it('tracks table size and game modes', () => {
+  it('tracks the biggest table you sat at and your game modes', () => {
     const big = mkGame({
       players: ['A', 'B', 'C', 'D', 'E', 'F'],
       rounds: [{ A: 200, B: 1, C: 1, D: 1, E: 1, F: 1 }],
@@ -168,13 +202,13 @@ describe('computeAchievementMetrics', () => {
       winner: 'A',
       mode: 'pass',
     })
-    const m = computeAchievementMetrics([big, pass])
+    const m = computeAchievementMetrics([big, pass], 'A')
     expect(m.biggestTable).toBe(6)
     expect(m.connectedGames).toBe(1)
     expect(m.passGames).toBe(1)
   })
 
-  it('counts action-card usage across rounds', () => {
+  it('counts only your action-card usage', () => {
     const g = mkGame({
       players: ['Ada', 'Bo'],
       rounds: [
@@ -182,23 +216,23 @@ describe('computeAchievementMetrics', () => {
         { Ada: 200, Bo: 10 },
       ],
       flags: {
-        0: { Ada: { secondChance: true }, Bo: { freeze: true } },
-        1: { Ada: { flipThree: true }, Bo: { freeze: true } },
+        0: { Ada: { secondChance: true, freeze: true }, Bo: { freeze: true } },
+        1: { Ada: { flipThree: true, freeze: true } },
       },
       winner: 'Ada',
     })
-    const m = computeAchievementMetrics([g])
+    const m = computeAchievementMetrics([g], 'Ada')
     expect(m.secondChances).toBe(1)
-    expect(m.freezes).toBe(2)
+    expect(m.freezes).toBe(2) // Ada's two freezes, not Bo's
     expect(m.flipThrees).toBe(1)
   })
 
-  it('derives seasonal facts from when a game finished', () => {
+  it('derives seasonal facts from your games', () => {
     const dec = mkGame({
       players: ['A', 'B'],
       rounds: [{ A: 200, B: 1 }],
       winner: 'A',
-      finishedAt: new Date(2026, 11, 25, 14).getTime(), // Christmas Day, afternoon
+      finishedAt: new Date(2026, 11, 25, 14).getTime(), // Christmas afternoon
     })
     const newYear = mkGame({
       players: ['A', 'B'],
@@ -206,13 +240,13 @@ describe('computeAchievementMetrics', () => {
       winner: 'A',
       finishedAt: new Date(2026, 0, 1, 2).getTime(), // Jan 1, 2am
     })
-    const m = computeAchievementMetrics([dec, newYear])
+    const m = computeAchievementMetrics([dec, newYear], 'A')
     expect(m.seasonDecember).toBe(1)
     expect(m.seasonNewYear).toBe(1)
     expect(m.lateNightGames).toBe(1)
   })
 
-  it('agrees with the statistics engine (linkage)', () => {
+  it('agrees with the statistics engine for the same player (linkage)', () => {
     const games = [
       mkGame({
         players: ['Ada', 'Bo'],
@@ -227,13 +261,13 @@ describe('computeAchievementMetrics', () => {
         winner: 'Ada',
       }),
     ]
-    const m = computeAchievementMetrics(games)
+    const m = computeAchievementMetrics(games, 'Ada')
     const stats = computeStats(games)
-    const maxWins = Math.max(...stats.players.map((p) => p.gamesWon))
-    const totalFlip7 = stats.players.reduce((s, p) => s + p.flip7Count, 0)
-    expect(m.bestWins).toBe(maxWins)
+    const ada = stats.players.find((p) => p.name === 'Ada')
+    expect(ada).toBeDefined()
+    expect(m.bestWins).toBe(ada?.gamesWon)
     expect(m.bestWins).toBe(2)
-    expect(m.totalFlip7).toBe(totalFlip7)
-    expect(m.distinctPlayers).toBe(stats.players.length)
+    expect(m.totalFlip7).toBe(ada?.flip7Count)
+    expect(m.distinctPlayers).toBe(1) // just Bo
   })
 })

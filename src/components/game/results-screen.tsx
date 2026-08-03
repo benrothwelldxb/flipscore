@@ -11,8 +11,10 @@ import type { Game } from '@/domain/types'
 import { celebrate } from '@/lib/confetti'
 import { vibrate } from '@/lib/haptics'
 import { playSound } from '@/lib/sound'
+import { resolveIdentityName } from '@/domain/social'
 import { toast } from '@/hooks/use-toast'
 import { useGameStore } from '@/stores/game-store'
+import { useIdentityStore } from '@/stores/identity-store'
 import { useStickersStore } from '@/stores/stickers-store'
 
 import { Leaderboard } from './leaderboard'
@@ -39,9 +41,11 @@ export function ResultsScreen({ game }: ResultsScreenProps) {
     celebrate()
     playSound('win')
 
-    // Finishing a game is the moment to award stickers. Reconcile against the
-    // whole (now-updated) history and surface anything freshly earned.
-    const metrics = computeAchievementMetrics(useGameStore.getState().games)
+    // Finishing a game is the moment to award stickers. Reconcile *your* record
+    // against the whole (now-updated) history and surface anything freshly earned.
+    const allGames = useGameStore.getState().games
+    const me = resolveIdentityName(useIdentityStore.getState().name, allGames)
+    const metrics = computeAchievementMetrics(allGames, me)
     const newly = useStickersStore.getState().reconcile(metrics)
     if (newly.length > 0) {
       // Capturing the one-time reconcile result to drive the reveal is exactly

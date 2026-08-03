@@ -125,3 +125,17 @@ export function playerNameOptions(games: Game[]): string[] {
     .sort((a, b) => b.gamesPlayed - a.gamesPlayed)
     .map((p) => p.name)
 }
+
+/**
+ * The player who "is you" on this device: an explicit choice if made, otherwise
+ * the most-played name (a sensible default so achievements are personal out of
+ * the box). Returns null only when there are no games to infer from.
+ */
+export function resolveIdentityName(
+  explicit: string | null | undefined,
+  games: Game[],
+): string | null {
+  const trimmed = explicit?.trim()
+  if (trimmed) return trimmed
+  return playerNameOptions(games)[0] ?? null
+}

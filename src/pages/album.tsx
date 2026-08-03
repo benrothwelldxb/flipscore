@@ -5,11 +5,14 @@ import { PageHeader } from '@/components/layout/page-header'
 import { RarityPill } from '@/components/stickers/rarity-pill'
 import { StickerCard } from '@/components/stickers/sticker-card'
 import { StickerDetail } from '@/components/stickers/sticker-detail'
+import { playerNameOptions } from '@/domain/social'
 import { STICKERS } from '@/domain/stickers/catalog'
 import { computeAchievementMetrics } from '@/domain/stickers/metrics'
 import { CATEGORY_BLURBS, CATEGORY_LABELS } from '@/domain/stickers/rarity'
 import { CATEGORIES, RARITIES, type Sticker } from '@/domain/stickers/types'
+import { cn } from '@/lib/utils'
 import { useAllGames, useHasHydrated } from '@/stores/game-store'
+import { useIdentityStore, useMyName } from '@/stores/identity-store'
 import {
   useCollectionProgress,
   useNewStickerIds,
@@ -21,7 +24,12 @@ export function AlbumPage() {
   const gamesHydrated = useHasHydrated()
   const stickersHydrated = useStickersHydrated()
   const games = useAllGames()
-  const metrics = useMemo(() => computeAchievementMetrics(games), [games])
+  const myName = useMyName()
+  const metrics = useMemo(
+    () => computeAchievementMetrics(games, myName),
+    [games, myName],
+  )
+  const nameOptions = useMemo(() => playerNameOptions(games), [games])
 
   const unlocked = useStickersStore((s) => s.unlocked)
   const progress = useCollectionProgress()
@@ -36,11 +44,19 @@ export function AlbumPage() {
   // seen when leaving so freshly-earned stickers only celebrate once.
   useEffect(() => {
     if (!gamesHydrated || !stickersHydrated) return
-    useStickersStore.getState().reconcile(computeAchievementMetrics(games))
+    useStickersStore
+      .getState()
+      .reconcile(computeAchievementMetrics(games, myName))
     return () => useStickersStore.getState().acknowledgeAll()
     // Run once on mount; games at mount are what matter for the reveal.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [gamesHydrated, stickersHydrated])
+
+  // Switching who "you" are rebuilds the album to that player's achievements.
+  function chooseMe(name: string) {
+    useIdentityStore.getState().setName(name)
+    useStickersStore.getState().rebuild(computeAchievementMetrics(games, name))
+  }
 
   if (!gamesHydrated || !stickersHydrated) return <LoadingState />
 
@@ -83,6 +99,39 @@ export function AlbumPage() {
           ))}
         </div>
       </section>
+
+      {nameOptions.length > 1 && (
+        <section aria-label="Whose achievements">
+          <p className="text-muted-foreground mb-2 text-xs">
+            Showing achievements for{' '}
+            <span className="text-foreground font-medium">
+              {myName ?? 'you'}
+            </span>
+            . Tap to switch.
+          </p>
+          <div className="flex flex-wrap gap-1.5">
+            {nameOptions.map((name) => {
+              const active = name === myName
+              return (
+                <button
+                  key={name}
+                  type="button"
+                  onClick={() => chooseMe(name)}
+                  aria-pressed={active}
+                  className={cn(
+                    'focus-visible:ring-ring/50 rounded-full border px-3 py-1 text-sm outline-none transition focus-visible:ring-2',
+                    active
+                      ? 'border-primary bg-primary/10 text-primary font-medium'
+                      : 'text-muted-foreground hover:text-foreground',
+                  )}
+                >
+                  {name}
+                </button>
+              )
+            })}
+          </div>
+        </section>
+      )}
 
       {CATEGORIES.map((category) => {
         const stickers = STICKERS.filter((s) => s.category === category)

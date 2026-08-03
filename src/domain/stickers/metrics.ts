@@ -1,3 +1,4 @@
+import { normalizeName } from '../analysis'
 import { computeLeaderboard, computeTotals } from '../scoring'
 import { computeStats } from '../stats'
 import type { Game } from '../types'
@@ -43,14 +44,15 @@ const LOW_TOTAL = 120
 const BIG_DEFICIT = 40
 
 /**
- * Whether the winner staged a comeback: at some round they were ranked strictly
- * last, and — separately — whether they ever trailed the leader by a big margin.
- * Walks the rounds cumulatively so it reflects how the game actually unfolded.
+ * Whether `meId` staged a comeback in this game: at some round they were ranked
+ * strictly last, and — separately — whether they ever trailed the leader by a
+ * big margin. Walks the rounds cumulatively so it reflects how the game unfolded.
  */
-function comeback(game: Game): { fromLast: boolean; big: boolean } {
-  const winnerId = game.winnerId
-  if (!winnerId || game.players.length < 2)
-    return { fromLast: false, big: false }
+function comeback(
+  game: Game,
+  meId: string,
+): { fromLast: boolean; big: boolean } {
+  if (game.players.length < 2) return { fromLast: false, big: false }
 
   const totals = new Map(game.players.map((p) => [p.id, 0]))
   let fromLast = false
@@ -60,26 +62,25 @@ function comeback(game: Game): { fromLast: boolean; big: boolean } {
     for (const [id, value] of Object.entries(round.scores)) {
       if (totals.has(id)) totals.set(id, (totals.get(id) ?? 0) + value)
     }
-    const winnerTotal = totals.get(winnerId) ?? 0
+    const meTotal = totals.get(meId) ?? 0
     let ahead = 0
-    let leaderTotal = winnerTotal
+    let leaderTotal = meTotal
     for (const [id, total] of totals) {
-      if (id === winnerId) continue
-      if (total > winnerTotal) ahead += 1
+      if (id === meId) continue
+      if (total > meTotal) ahead += 1
       if (total > leaderTotal) leaderTotal = total
     }
     // Ranked last = everyone else is ahead.
     if (ahead === game.players.length - 1) fromLast = true
-    if (leaderTotal - winnerTotal >= BIG_DEFICIT) big = true
+    if (leaderTotal - meTotal >= BIG_DEFICIT) big = true
   }
 
   return { fromLast, big }
 }
 
-/** Did the winner bust at least once in this game? */
-function winnerBusted(game: Game): boolean {
-  if (!game.winnerId) return false
-  return game.rounds.some((r) => r.flags?.[game.winnerId as string]?.bust)
+/** Did `id` bust at least once in this game? */
+function bustedIn(game: Game, id: string): boolean {
+  return game.rounds.some((r) => r.flags?.[id]?.bust === true)
 }
 
 /** Local-time facts about when a game finished (falls back to updatedAt). */
@@ -99,70 +100,92 @@ function whenFinished(game: Game) {
 }
 
 /**
- * Reduce every finished game into the numeric signals the achievement catalog
- * measures against. Built on the same primitives as Stats (computeStats,
- * computeLeaderboard, computeTotals) so the album can never disagree with the
- * statistics screen.
+ * Reduce the library into the numeric signals the achievement catalog measures
+ * against — from the perspective of one player, `meName`. Everything here is
+ * personal: *your* wins, *your* Flip 7s and busts, games *you* won, tables *you*
+ * sat at. Built on the same primitives as Stats (computeStats, computeLeaderboard,
+ * computeTotals) so the album never disagrees with the statistics screen.
+ *
+ * With no identity (`meName` empty or matching no games) the result is all-zero:
+ * an album is personal, so without a "you" there is nothing to earn yet.
  */
-export function computeAchievementMetrics(games: Game[]): AchievementMetrics {
+export function computeAchievementMetrics(
+  games: Game[],
+  meName?: string | null,
+): AchievementMetrics {
   const m = emptyMetrics()
+  const meKey = meName ? normalizeName(meName) : ''
+  if (!meKey) return m
 
-  // Per-player aggregates come straight from the stats engine.
-  const stats = computeStats(games)
-  m.distinctPlayers = stats.players.length
-  for (const p of stats.players) {
-    m.bestGamesPlayed = Math.max(m.bestGamesPlayed, p.gamesPlayed)
-    m.bestWins = Math.max(m.bestWins, p.gamesWon)
-    m.bestWinStreak = Math.max(m.bestWinStreak, p.longestWinStreak)
-    m.bestFlip7 = Math.max(m.bestFlip7, p.flip7Count)
-    m.bestBusts = Math.max(m.bestBusts, p.bustCount)
-    m.totalFlip7 += p.flip7Count
-    m.totalBusts += p.bustCount
-    if (p.highestRound != null)
-      m.highestRound = Math.max(m.highestRound, p.highestRound)
+  // My career aggregates come straight from the stats engine (name-keyed).
+  const me = computeStats(games).players.find(
+    (p) => normalizeName(p.name) === meKey,
+  )
+  if (me) {
+    m.bestGamesPlayed = me.gamesPlayed
+    m.bestWins = me.gamesWon
+    m.bestWinStreak = me.longestWinStreak
+    // "best" and "total" collapse to my career count once it's personal.
+    m.bestFlip7 = me.flip7Count
+    m.totalFlip7 = me.flip7Count
+    m.bestBusts = me.bustCount
+    m.totalBusts = me.bustCount
+    if (me.highestRound != null) m.highestRound = me.highestRound
   }
 
-  const finished = games.filter((g) => g.status === 'finished' && !g.deletedAt)
+  const opponents = new Set<string>()
+  const finished = games.filter(
+    (g) =>
+      g.status === 'finished' &&
+      !g.deletedAt &&
+      g.players.some((p) => normalizeName(p.name) === meKey),
+  )
   m.gamesFinished = finished.length
 
   for (const game of finished) {
+    const mePlayer = game.players.find((p) => normalizeName(p.name) === meKey)
+    if (!mePlayer) continue
+    const meId = mePlayer.id
+
     m.biggestTable = Math.max(m.biggestTable, game.players.length)
     if (game.settings.mode === 'connected') m.connectedGames += 1
     if (game.settings.mode === 'pass') m.passGames += 1
 
-    m.roundsPlayed += game.rounds.filter(
-      (r) => Object.keys(r.scores).length > 0,
-    ).length
-
-    const totals = computeTotals(game)
-    for (const value of Object.values(totals)) {
-      m.highestTotal = Math.max(m.highestTotal, value)
+    for (const p of game.players) {
+      const key = normalizeName(p.name)
+      if (key && key !== meKey) opponents.add(key)
     }
 
-    // Winner-relative facts.
-    const board = computeLeaderboard(game)
-    if (game.winnerId) {
-      const winnerTotal = totals[game.winnerId] ?? 0
-      const second = board.find((e) => e.player.id !== game.winnerId)
-      const margin = second ? winnerTotal - second.total : winnerTotal
-      if (margin <= CLOSE_MARGIN) m.closeWins += 1
-      if (winnerTotal <= LOW_TOTAL) m.lowScoringWins += 1
+    // Rounds I actually took part in.
+    m.roundsPlayed += game.rounds.filter((r) => meId in r.scores).length
 
-      if (winnerBusted(game)) m.winsWithBust += 1
+    const totals = computeTotals(game)
+    m.highestTotal = Math.max(m.highestTotal, totals[meId] ?? 0)
+
+    // Win-relative facts count only when *I* won.
+    if (game.winnerId === meId) {
+      const board = computeLeaderboard(game)
+      const meTotal = totals[meId] ?? 0
+      const second = board.find((e) => e.player.id !== meId)
+      const margin = second ? meTotal - second.total : meTotal
+      if (margin <= CLOSE_MARGIN) m.closeWins += 1
+      if (meTotal <= LOW_TOTAL) m.lowScoringWins += 1
+
+      if (bustedIn(game, meId)) m.winsWithBust += 1
       else m.flawlessWins += 1
 
-      const { fromLast, big } = comeback(game)
+      const { fromLast, big } = comeback(game, meId)
       if (fromLast) m.comebackWins += 1
       if (big) m.bigComebackWins += 1
     }
 
+    // My action-card usage.
     for (const round of game.rounds) {
-      if (!round.flags) continue
-      for (const f of Object.values(round.flags)) {
-        if (f.secondChance) m.secondChances += 1
-        if (f.freeze) m.freezes += 1
-        if (f.flipThree) m.flipThrees += 1
-      }
+      const f = round.flags?.[meId]
+      if (!f) continue
+      if (f.secondChance) m.secondChances += 1
+      if (f.freeze) m.freezes += 1
+      if (f.flipThree) m.flipThrees += 1
     }
 
     const w = whenFinished(game)
@@ -172,6 +195,8 @@ export function computeAchievementMetrics(games: Game[]): AchievementMetrics {
     if (w.weekend) m.weekendGames += 1
     if (w.lateNight) m.lateNightGames += 1
   }
+
+  m.distinctPlayers = opponents.size
 
   return m
 }

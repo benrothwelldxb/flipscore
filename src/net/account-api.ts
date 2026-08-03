@@ -1,6 +1,8 @@
-// Thin client for the Cloud Accounts API served by the Worker at /api/auth/*.
+// Thin client for the Cloud Accounts API served by the Worker at /api/*.
 // Same-origin relative URLs, exactly like the Connected-mode relay — so this
 // works in production and under `wrangler dev` with no configuration.
+
+import type { SyncItem } from '@/domain/sync'
 
 export interface AccountUser {
   id: string
@@ -30,14 +32,15 @@ export class AccountApiError extends Error {
   }
 }
 
-async function call<T>(
-  path: string,
+/** Core fetch wrapper: JSON in/out, Bearer auth, and typed error codes. */
+async function request<T>(
+  url: string,
   init: RequestInit & { token?: string } = {},
 ): Promise<T> {
   const { token, headers, ...rest } = init
   let res: Response
   try {
-    res = await fetch(`${BASE}${path}`, {
+    res = await fetch(url, {
       ...rest,
       headers: {
         ...(rest.body ? { 'content-type': 'application/json' } : {}),
@@ -66,6 +69,14 @@ async function call<T>(
   return data as T
 }
 
+/** Call an /api/auth/* endpoint. */
+function call<T>(
+  path: string,
+  init: RequestInit & { token?: string } = {},
+): Promise<T> {
+  return request<T>(`${BASE}${path}`, init)
+}
+
 export function requestCode(email: string): Promise<RequestCodeResult> {
   return call<RequestCodeResult>('/request-code', {
     method: 'POST',
@@ -87,4 +98,22 @@ export async function fetchMe(token: string): Promise<AccountUser> {
 
 export async function signOut(token: string): Promise<void> {
   await call<{ ok: true }>('/sign-out', { method: 'POST', token })
+}
+
+export interface SyncResponse {
+  cursor: number
+  changes: SyncItem[]
+}
+
+/** Push local changes and pull everything since `cursor` in one round-trip. */
+export function syncLibrary(
+  token: string,
+  cursor: number,
+  changes: SyncItem[],
+): Promise<SyncResponse> {
+  return request<SyncResponse>('/api/sync', {
+    method: 'POST',
+    token,
+    body: JSON.stringify({ since: cursor, changes }),
+  })
 }

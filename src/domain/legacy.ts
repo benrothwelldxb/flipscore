@@ -163,6 +163,8 @@ export interface LegacyProfile {
   accentColor?: string
   /** Up to four pinned showcase stickers. */
   pinnedStickerIds?: string[]
+  /** Last-edit time (epoch ms), stamped on every change for last-write-wins sync. */
+  updatedAt?: number
 }
 
 export interface FormEntry {

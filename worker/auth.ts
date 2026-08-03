@@ -207,7 +207,7 @@ async function handleVerifyCode(
 }
 
 /** Resolve the account for a request's Bearer token, or null if unauthenticated. */
-async function accountForRequest(
+export async function accountForRequest(
   request: Request,
   env: Env,
   now: number,

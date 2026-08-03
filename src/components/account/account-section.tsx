@@ -1,11 +1,28 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { CloudCheck, LogOut, Mail } from 'lucide-react'
+import { CloudCheck, LogOut, Mail, RefreshCw } from 'lucide-react'
 
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { AccountApiError } from '@/net/account-api'
+import { cn } from '@/lib/utils'
 import { useAccountStore } from '@/stores/account-store'
+import {
+  useLastSyncedAt,
+  useSyncStatus,
+  useSyncStore,
+} from '@/stores/sync-store'
+
+/** Compact "Xm ago" style relative time. */
+function relativeTime(ts: number): string {
+  const seconds = Math.round((Date.now() - ts) / 1000)
+  if (seconds < 60) return 'just now'
+  const minutes = Math.round(seconds / 60)
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.round(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  return `${Math.round(hours / 24)}d ago`
+}
 
 /** Map an API error code to a friendly, human sentence. */
 function messageFor(error: unknown): string {
@@ -92,31 +109,7 @@ export function AccountSection() {
 
   // Signed in.
   if (user && token) {
-    return (
-      <div className="border-t pt-4">
-        <Label className="mb-1 flex items-center gap-1.5">
-          <CloudCheck className="size-4" aria-hidden />
-          Account
-        </Label>
-        <div className="flex items-center justify-between gap-3">
-          <div className="min-w-0">
-            <p className="truncate text-sm font-medium">{user.email}</p>
-            <p className="text-muted-foreground text-xs">
-              Signed in. Cross-device sync is coming soon.
-            </p>
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => void signOut()}
-            className="shrink-0"
-          >
-            <LogOut className="size-4" />
-            Sign out
-          </Button>
-        </div>
-      </div>
-    )
+    return <SignedIn email={user.email} onSignOut={() => void signOut()} />
   }
 
   // Code-entry step.
@@ -218,6 +211,71 @@ export function AccountSection() {
           {busy ? 'Sending…' : 'Send sign-in code'}
         </Button>
       </form>
+    </div>
+  )
+}
+
+/** The signed-in view: identity, live sync status, and a manual sync. */
+function SignedIn({
+  email,
+  onSignOut,
+}: {
+  email: string
+  onSignOut: () => void
+}) {
+  const status = useSyncStatus()
+  const lastSyncedAt = useLastSyncedAt()
+  const syncNow = useSyncStore((s) => s.syncNow)
+
+  const statusText =
+    status === 'syncing'
+      ? 'Syncing…'
+      : status === 'error'
+        ? 'Sync failed — tap Sync to retry'
+        : lastSyncedAt
+          ? `Synced ${relativeTime(lastSyncedAt)}`
+          : 'Ready to sync'
+
+  return (
+    <div className="border-t pt-4">
+      <Label className="mb-1 flex items-center gap-1.5">
+        <CloudCheck className="size-4" aria-hidden />
+        Account
+      </Label>
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium">{email}</p>
+          <p
+            className={cn(
+              'text-xs',
+              status === 'error' ? 'text-destructive' : 'text-muted-foreground',
+            )}
+          >
+            {statusText}
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => void syncNow()}
+            disabled={status === 'syncing'}
+          >
+            <RefreshCw
+              className={cn('size-4', status === 'syncing' && 'animate-spin')}
+            />
+            Sync
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onSignOut}
+            aria-label="Sign out"
+          >
+            <LogOut className="size-4" />
+          </Button>
+        </div>
+      </div>
     </div>
   )
 }

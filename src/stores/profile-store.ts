@@ -34,7 +34,9 @@ function patch(
 ): Record<string, LegacyProfile> {
   const key = normalizeName(name)
   if (!key) return state.profiles
-  return { ...state.profiles, [key]: update(state.profiles[key] ?? {}) }
+  // Stamp updatedAt so cross-device sync can resolve edits last-write-wins.
+  const next = { ...update(state.profiles[key] ?? {}), updatedAt: Date.now() }
+  return { ...state.profiles, [key]: next }
 }
 
 export const useProfileStore = create<ProfileState>()(

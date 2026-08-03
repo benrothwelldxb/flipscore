@@ -1,4 +1,5 @@
 import { handleAuth } from './auth'
+import { handleSync } from './sync'
 import { SignalRoom } from './signal-room'
 import type { Env } from './worker.d'
 
@@ -6,8 +7,8 @@ export { SignalRoom }
 
 /**
  * The Worker entry point. WebSocket upgrades to `/rtc/<ROOMCODE>` are routed to
- * the Durable Object that owns that room; `/api/auth/*` is the Cloud Accounts
- * API (D1-backed); every other request is served from the static asset bundle
+ * the Durable Object that owns that room; `/api/auth/*` and `/api/sync` are the
+ * Cloud Accounts API (D1-backed); every other request is served from the bundle
  * (the built SPA), so client-side routing keeps working via the assets
  * binding's single-page-application fallback.
  */
@@ -22,6 +23,9 @@ export default {
     }
     if (url.pathname.startsWith('/api/auth/')) {
       return handleAuth(request, env)
+    }
+    if (url.pathname === '/api/sync') {
+      return handleSync(request, env)
     }
     return env.ASSETS.fetch(request)
   },

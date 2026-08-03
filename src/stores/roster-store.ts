@@ -17,6 +17,8 @@ export interface SavedPlayer {
   name: string
   color: string
   avatar?: AvatarConfig
+  /** Last-updated time (epoch ms), stamped for last-write-wins sync. */
+  updatedAt?: number
 }
 
 interface RosterState {
@@ -58,6 +60,7 @@ export const useRosterStore = create<RosterState>()(
               name: name.trim(),
               color,
               avatar: avatar ?? existing?.avatar,
+              updatedAt: Date.now(),
             })
           }
           return { players: [...byName.values()] }

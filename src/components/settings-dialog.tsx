@@ -1,6 +1,7 @@
 import { useRef, type KeyboardEvent } from 'react'
 import { Monitor, Moon, Settings, Sun, type LucideIcon } from 'lucide-react'
 
+import { AccountSection } from '@/components/account/account-section'
 import { Button } from '@/components/ui/button'
 import {
   Dialog,
@@ -164,6 +165,8 @@ export function SettingsDialog() {
               />
             </div>
           </div>
+
+          <AccountSection />
 
           <p className="text-muted-foreground pt-1 text-center text-xs">
             FlipScorer v{__APP_VERSION__}

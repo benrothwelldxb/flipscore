@@ -23,3 +23,30 @@ class_name = "SignalRoom"
 [[migrations]]
 tag = "v1"
 new_sqlite_classes = ["SignalRoom"]
+
+# Cloud Accounts — passwordless email-code sign-in, stored in D1 (SQLite).
+#
+# One-time setup (run these yourself; they touch your Cloudflare account):
+#   1. npx wrangler d1 create flipscorer         # then paste the database_id below
+#   2. npx wrangler d1 execute flipscorer --local  --file=./migrations/0001_auth.sql
+#      npx wrangler d1 execute flipscorer --remote --file=./migrations/0001_auth.sql
+#   3. npx wrangler secret put AUTH_SECRET        # any long random string
+#
+# Email delivery is pluggable. With no key set, the Worker runs in "console"
+# mode: the sign-in code is logged to the Worker console (and, on a local dev
+# origin only, echoed in the API response) so the whole flow works in dev. A
+# deployed origin never echoes codes. To send real email:
+#   4. npx wrangler secret put RESEND_API_KEY     # from resend.com
+#      Set EMAIL_FROM to a verified sender, e.g. [vars] EMAIL_FROM below.
+[[d1_databases]]
+binding = "DB"
+database_name = "flipscorer"
+# Replace with the id printed by `wrangler d1 create flipscorer`. A local dev
+# database is created automatically by `wrangler dev`, so this placeholder is
+# only needed for remote deploys.
+database_id = "REPLACE_WITH_D1_DATABASE_ID"
+
+[vars]
+# Verified "From" address for sign-in emails (used only when RESEND_API_KEY is
+# set). Safe to commit — it is not a secret.
+EMAIL_FROM = "FlipScorer <onboarding@resend.dev>"
